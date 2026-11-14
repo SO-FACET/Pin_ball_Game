@@ -10,7 +10,7 @@ import {registrationDetails,registrationPayload,normaliseDesignPhone} from '../c
 test('result and leave copy preserves exact scores without rounding money upwards',()=>{
  assert.equal(POINTS_PER_RUPEE,10);assert.equal(rewardFromPoints(7300),730);assert.equal(rewardFromPoints(3205),320.5);
  assert.equal(formatPoints(3200),'3,200');assert.equal(rewardMoney(3205),'₹320.5');assert.equal(rewardMoney(9),'₹0.9');assert.equal(rewardMoney(-5),'₹0');
- assert.equal(resultHeadline(0),'Not much to keep yet.');assert.equal(resultHeadline(9),'Not much to keep yet.');assert.equal(resultHeadline(10),'Here’s what’s yours.');
+ assert.equal(resultHeadline(0),'Not much to keep yet.');assert.equal(resultHeadline(9),'Not much to keep yet.');assert.equal(resultHeadline(10),'Here’s what’s yours!');
  assert.equal(resultHeadline(5000,4500),'New best. Your SO/ COINS just went up.');assert.equal(resultHeadline(1,0),'New best. Your SO/ COINS just went up.');
  assert.equal(resultHeadline(3000,4500),'Your best is still 4,500 SO/ COINS (₹450). Beat it to earn more.');assert.equal(resultHeadline(4500,4500),resultHeadline(3000,4500));
  assert.deepEqual(leaveCopy(3200),{title:'Leaving ₹320 on the table?',support:'Your 3,200 SO/ COINS disappear when you leave.'});

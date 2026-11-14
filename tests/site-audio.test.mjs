@@ -2,13 +2,20 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
+import {transform} from 'esbuild-wasm';
 
 const source = await readFile(new URL('../sounds/site-audio.js', import.meta.url), 'utf8');
 const flush = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); };
 
-function audioHarness({ muted = false, policy = false, faq = false } = {}) {
+function audioHarness({ muted = false, policy = false, faq = false, wasPlaying = false, blocked = false, blockedMedia = false, savedPosition, oldPosition } = {}) {
   let now = 0, timerId = 0;
+  let audioBlocked = blocked, mediaBlocked = blockedMedia;
+  let pauses = 0;
   const timers = new Map(), scheduled = [], cleared = [], contexts = [], gains = [], starts = [], placements = [];
+  const preferences = new Map([['sofacet-site-sound', muted ? 'off' : 'on']]);
+  const session = new Map(wasPlaying ? [['sofacet-site-sound-active', 'on']] : []);
+  if (savedPosition !== undefined) session.set('sofacet-site-music-v2', String(savedPosition));
+  if (oldPosition !== undefined) session.set('sofacet-site-music', String(oldPosition));
   const element = () => ({ dataset: {}, setAttribute() {}, addEventListener() {}, querySelectorAll: () => [] });
   const button = element();
   const navigation = { prepend(node) { placements.push({ parent: 'navigation', node }); } };
@@ -18,10 +25,13 @@ function audioHarness({ muted = false, policy = false, faq = false } = {}) {
     createElement: () => button,
     querySelector: selector => selector === '#site-sound' ? button : selector === '.site-navigation' ? navigation : selector === '#faq-root' && faq ? {} : null,
   };
+  const audioEvents = new Map();
+  let music;
   class Audio {
-    addEventListener() {}
-    play() { return Promise.resolve(); }
-    pause() {}
+    constructor() { music = this; this.duration = 208.896; this.readyState = 1; this.currentTime = 0; }
+    addEventListener(type, callback) { audioEvents.set(type, callback); }
+    play() { return mediaBlocked ? Promise.reject(new Error('Media autoplay blocked')) : Promise.resolve(); }
+    pause() { pauses++; }
   }
   const node = () => ({ connect(destination) { return destination; }, disconnect() {} });
   class AudioContext {
@@ -30,10 +40,10 @@ function audioHarness({ muted = false, policy = false, faq = false } = {}) {
     constructor() { contexts.push(this); }
     get currentTime() { return now / 1000; }
     addEventListener(_, callback) { this.changed = callback; }
-    async resume() { this.state = 'running'; this.changed?.(); }
+    async resume() { if (audioBlocked) throw new Error('Autoplay blocked'); this.state = 'running'; this.changed?.(); }
     async suspend() { this.state = 'suspended'; this.changed?.(); }
     createGain() {
-      const gain = { value: 0, changes: [], setTargetAtTime(value) { this.value = value; this.changes.push(value); }, setValueAtTime() {}, linearRampToValueAtTime() {} };
+      const gain = { value: 0, changes: [], setTargetAtTime(value, time, seconds) { this.value = value; this.changes.push({value, seconds}); }, setValueAtTime() {}, linearRampToValueAtTime() {} };
       gains.push(gain);
       return { ...node(), gain };
     }
@@ -45,8 +55,8 @@ function audioHarness({ muted = false, policy = false, faq = false } = {}) {
     document, Audio, AudioContext, console,
     window: { addEventListener() {} },
     matchMedia: () => ({ matches: true, addEventListener() {} }),
-    localStorage: { getItem: () => muted ? 'off' : 'on', setItem() {} },
-    sessionStorage: { getItem: () => null, setItem() {} },
+    localStorage: { getItem: key => preferences.get(key) ?? null, setItem: (key, value) => preferences.set(key, value) },
+    sessionStorage: { getItem: key => session.get(key) ?? null, setItem: (key, value) => session.set(key, value) },
     performance: { now: () => now },
     fetch: async () => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(1) }),
     setTimeout(callback, delay) { const id = ++timerId; scheduled.push(delay); timers.set(id, { callback, at: now + delay, delay }); return id; },
@@ -55,10 +65,12 @@ function audioHarness({ muted = false, policy = false, faq = false } = {}) {
   // Execute the shipped module, including its startup and event wiring, in an isolated browser fixture.
   vm.runInNewContext(source.replace(/^export /gm, '') + '\nglobalThis.sound = siteSound;', sandbox);
   return {
-    sound: sandbox.sound, document, contexts, gains, scheduled, cleared, placements,
+    sound: sandbox.sound, document, contexts, gains, scheduled, cleared, placements, button, session, preferences, music, audioEvents,
+    get pauses() { return pauses; },
     get impacts() { return starts.filter(item => !item.source.loop).length; },
     rollingTimers: () => [...timers.values()].filter(timer => timer.delay === 130).length,
     async activate() { sandbox.sound.setActive(true); await flush(); },
+    allowPlayback() { audioBlocked = false; mediaBlocked = false; },
     advance(ms) {
       const until = now + ms;
       while (true) {
@@ -70,6 +82,36 @@ function audioHarness({ muted = false, policy = false, faq = false } = {}) {
     },
   };
 }
+
+test('the supplied website soundtrack starts at 1:15 and remembers only its own position', () => {
+  const h = audioHarness({ oldPosition: 180 });
+  assert.equal(h.music.src, '/sounds/SO-FACET-landing-audio.mp3');
+  h.audioEvents.get('loadedmetadata')();
+  assert.equal(h.music.currentTime, 75);
+  h.music.currentTime = 110;
+  h.sound.save();
+  assert.equal(h.session.get('sofacet-site-music-v2'), '110');
+  h.audioEvents.get('ended')();
+  assert.equal(h.music.currentTime, 75);
+
+  const next = audioHarness({ savedPosition: 110 });
+  next.audioEvents.get('loadedmetadata')();
+  assert.equal(next.music.currentTime, 110);
+});
+
+test('music fades in and continues through cards until the game becomes visible', async () => {
+  const h = audioHarness(); await h.activate();
+  assert.ok(h.gains[0].changes.some(change => change.value === 1 && change.seconds === .3));
+  h.sound.frame(400);
+  h.sound.cards();
+  h.advance(500);
+  assert.equal(h.pauses, 0);
+  assert.equal(h.gains[0].value, 1);
+  assert.equal(h.gains[2].value, 0);
+  h.sound.handoff();
+  h.advance(500);
+  assert.equal(h.pauses, 1);
+});
 
 test('the sound control mounts in navigation or directly on policy and FAQ pages', () => {
   for (const [options, parent] of [[{}, 'navigation'], [{ policy: true }, 'body'], [{ faq: true }, 'body']]) {
@@ -137,6 +179,8 @@ test('hidden and inactive frames do not schedule rolling work and visible moveme
   const h = audioHarness(); await h.activate(); h.sound.frame(300);
   h.document.hidden = true; h.sound.visibility();
   assert.equal(h.rollingTimers(), 0);
+  h.advance(500); assert.equal(h.pauses, 0, 'hiding the tab must not stop music');
+  assert.equal(h.button.dataset.on, 'true');
   const scheduled = h.scheduled.length;
   h.sound.frame(400); assert.equal(h.scheduled.length, scheduled);
   h.document.hidden = false; h.sound.visibility(); await flush();
@@ -144,4 +188,41 @@ test('hidden and inactive frames do not schedule rolling work and visible moveme
   h.sound.setActive(false);
   const inactiveScheduled = h.scheduled.length;
   h.sound.frame(500); assert.equal(h.scheduled.length, inactiveScheduled);
+});
+
+test('a blocked new page retries sound instead of muting the saved choice', async () => {
+  for (const blockedBy of [{ blocked: true }, { blockedMedia: true }]) {
+    const h = audioHarness({ wasPlaying: true, ...blockedBy });
+    assert.equal(h.button.dataset.on, 'false');
+    await h.activate();
+    assert.equal(h.button.dataset.on, 'false');
+    h.sound.toggle();
+    assert.equal(h.preferences.get('sofacet-site-sound'), 'on');
+    h.allowPlayback(); h.sound.unlock(); await flush();
+    assert.equal(h.button.dataset.on, 'true');
+    h.sound.save(); assert.equal(h.session.get('sofacet-site-sound-active'), 'on');
+    h.sound.toggle();
+    assert.equal(h.button.dataset.on, 'false');
+    assert.equal(h.preferences.get('sofacet-site-sound'), 'off');
+  }
+});
+
+test('the game sound control shares the site mute choice', async () => {
+  const source = await readFile(new URL('../game-source/src/game-sound.ts', import.meta.url), 'utf8');
+  const {code} = await transform(source, {loader:'ts', format:'cjs'});
+  const saved = new Map([['sofacet-site-sound','off']]);
+  const module = {exports:{}};
+  class AudioContext {
+    destination = {};
+    currentTime = 0;
+    createGain() { return {gain:{value:0,cancelScheduledValues(){},setTargetAtTime(){}},connect(){}}; }
+    resume() { return Promise.resolve(); }
+  }
+  vm.runInNewContext(code, {module,exports:module.exports,AudioContext,console:{warn(){}},fetch:async()=>({ok:false,status:404}),localStorage:{getItem:key=>saved.get(key),setItem:(key,value)=>saved.set(key,value)}});
+  const sound = module.exports.createGameSound();
+  assert.equal(sound.muted,true);
+  sound.setMuted(false);
+  assert.equal(saved.get('sofacet-site-sound'),'on');
+  sound.setMuted(true);
+  assert.equal(saved.get('sofacet-site-sound'),'off');
 });

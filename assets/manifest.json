@@ -1,6 +1,6 @@
 {
   "asset_checksums": {
-    "collider-entities.json": "a1f4530918513c8d2c0068861a6ce4036a19b5988b2bb8c2729fe9a9c239cbec",
+    "collider-entities.json": "e08bdaafc93ddcb599ce896949728ea3dd3229361acbbc1fa1a6db10ce40aaac",
     "collision-indices.bin": "e5156d0b1c69c10aa46d1a7fb4c89aab09cdc0b80bb8e2b2c696017c85e7a9c5",
     "collision-vertices.bin": "3329d7cb9364406e8e5aeb0590345e8b169116b0be0d79ebb430b8f140b0f56c",
     "facet-table.glb": "d2cdf251fddc2b406e47b49f2d27ea1c5b7ac3614c70b627159f10c9c8e47e81",
@@ -27979,7 +27979,7 @@
         1.6535999664881393,
         0.3722400069236756
       ],
-      "score_delta": -500,
+      "score_delta": 500,
       "details": {
         "feedback": "brighter_emission_and_sound",
         "hit_impulse": "bounded_to_be_tuned",
@@ -27994,7 +27994,7 @@
         2.4185409545898438,
         0.3722400069236756
       ],
-      "score_delta": -500,
+      "score_delta": 500,
       "details": {
         "feedback": "brighter_emission_and_sound",
         "hit_impulse": "bounded_to_be_tuned",
@@ -28009,7 +28009,7 @@
         -1.6305176263894843,
         0.42180203497409824
       ],
-      "score_delta": 100,
+      "score_delta": 200,
       "details": {
         "hit_impulse": "bounded_to_be_tuned",
         "feedback": "brighter_emission_and_sound"
@@ -28023,7 +28023,7 @@
         -2.3380054613795087,
         0.42180203497409824
       ],
-      "score_delta": 100,
+      "score_delta": 200,
       "details": {
         "hit_impulse": "bounded_to_be_tuned",
         "feedback": "brighter_emission_and_sound"
@@ -28037,7 +28037,7 @@
         -2.9962335413541603,
         0.42180203497409824
       ],
-      "score_delta": 100,
+      "score_delta": 200,
       "details": {
         "hit_impulse": "bounded_to_be_tuned",
         "feedback": "brighter_emission_and_sound"
@@ -28051,7 +28051,7 @@
         -1.4220072495356735,
         0.42180004194378856
       ],
-      "score_delta": 100,
+      "score_delta": 200,
       "details": {
         "hit_impulse": "bounded_to_be_tuned",
         "feedback": "brighter_emission_and_sound"
@@ -28065,7 +28065,7 @@
         -2.130321270467394,
         0.42180004194378856
       ],
-      "score_delta": 100,
+      "score_delta": 200,
       "details": {
         "hit_impulse": "bounded_to_be_tuned",
         "feedback": "brighter_emission_and_sound"
@@ -28079,7 +28079,7 @@
         -2.8265923249140914,
         0.42180004194378856
       ],
-      "score_delta": 100,
+      "score_delta": 200,
       "details": {
         "hit_impulse": "bounded_to_be_tuned",
         "feedback": "brighter_emission_and_sound"
@@ -28350,7 +28350,7 @@
         7.740660598864283,
         0.4447391863774371
       ],
-      "score_delta": 1000,
+      "score_delta": 1500,
       "details": {
         "pass_through": true,
         "solid_ball_collider": false,
@@ -28398,7 +28398,7 @@
         11.574653487245165,
         0.45141589006891963
       ],
-      "score_delta": 1000,
+      "score_delta": 1500,
       "details": {
         "pass_through": true,
         "solid_ball_collider": false,
@@ -28446,7 +28446,7 @@
         9.911666646108957,
         0.4507547255467486
       ],
-      "score_delta": 1000,
+      "score_delta": 1500,
       "details": {
         "pass_through": true,
         "solid_ball_collider": false,
@@ -28494,7 +28494,7 @@
         3.4018420566812275,
         0.44294648727885
       ],
-      "score_delta": 1000,
+      "score_delta": 1500,
       "details": {
         "pass_through": true,
         "solid_ball_collider": false,
@@ -28542,7 +28542,7 @@
         4.557514706584708,
         0.44973000994435064
       ],
-      "score_delta": 1000,
+      "score_delta": 1500,
       "details": {
         "pass_through": true,
         "solid_ball_collider": false,
@@ -28590,7 +28590,7 @@
         11.75670569351157,
         1.6908647555316432
       ],
-      "score_delta": 1000,
+      "score_delta": 1500,
       "details": {
         "pass_through": true,
         "solid_ball_collider": false,
@@ -28638,7 +28638,7 @@
         12.065592589489471,
         0.45141590497008083
       ],
-      "score_delta": 1000,
+      "score_delta": 1500,
       "details": {
         "pass_through": true,
         "solid_ball_collider": false,
@@ -28802,7 +28802,7 @@
         10.732540130615234,
         0.10999999940395355
       ],
-      "score_delta": 200,
+      "score_delta": 500,
       "details": {
         "user_confirmed_bumper": true,
         "colliders_created": false,
@@ -28845,7 +28845,7 @@
         10.732540130615234,
         0.10999999940395355
       ],
-      "score_delta": 200,
+      "score_delta": 500,
       "details": {
         "user_confirmed_bumper": true,
         "colliders_created": false,
@@ -28888,7 +28888,7 @@
         7.385063870668941,
         0.3722400069236756
       ],
-      "score_delta": -500,
+      "score_delta": 500,
       "details": {
         "feedback": "brighter_emission_and_sound",
         "hit_impulse": "bounded_to_be_tuned",
@@ -28932,7 +28932,7 @@
   "target_gameplay": [
     {
       "id": "target_f",
-      "score": 1000,
+      "score": 1500,
       "initial_slot": "target_20261020_05",
       "initial_position": [
         -0.24050124064283646,
@@ -29055,7 +29055,7 @@
     },
     {
       "id": "target_a",
-      "score": 1000,
+      "score": 1500,
       "initial_slot": "target_20261020_03",
       "initial_position": [
         0.08564254544748531,
@@ -29178,7 +29178,7 @@
     },
     {
       "id": "target_c",
-      "score": 1000,
+      "score": 1500,
       "initial_slot": "target_20261020_04",
       "initial_position": [
         0.1978750440752034,
@@ -29301,7 +29301,7 @@
     },
     {
       "id": "target_e",
-      "score": 1000,
+      "score": 1500,
       "initial_slot": "target_20261020_07",
       "initial_position": [
         -0.09904466892265278,
@@ -29424,7 +29424,7 @@
     },
     {
       "id": "target_t",
-      "score": 1000,
+      "score": 1500,
       "initial_slot": "target_20261020_06",
       "initial_position": [
         0.1585007517788234,
@@ -29547,7 +29547,7 @@
     },
     {
       "id": "target_s",
-      "score": 1000,
+      "score": 1500,
       "initial_slot": "target_20261020_02",
       "initial_position": [
         -0.07673481103868217,
@@ -29670,7 +29670,7 @@
     },
     {
       "id": "target_o_lower",
-      "score": 1000,
+      "score": 1500,
       "initial_slot": "target_20261020_01",
       "initial_position": [
         -0.20634688680321503,

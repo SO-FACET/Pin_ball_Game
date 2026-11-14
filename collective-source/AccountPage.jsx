@@ -59,7 +59,7 @@ export default function AccountPage({pageTitle='SO/ FACET — My SO/ COINS',poin
       {pointsContext&&<p className="points-label">MY SO/ COINS</p>}
       <h1 className="welcome-heading">WELCOME</h1>
       <nav aria-label="Account access" className="tabs" role="tablist">
-        <button aria-controls="registered-panel" aria-selected={tab === 'registered'} className={'tab' + (tab === 'registered' ? ' active' : '')} id="registered-tab" role="tab" type="button" tabIndex={tab === 'registered' ? 0 : -1} onClick={() => selectTab('registered')} onKeyDown={tabKey}>SIGN IN</button>
+        <button aria-controls="registered-panel" aria-selected={tab === 'registered'} className={'tab' + (tab === 'registered' ? ' active' : '')} id="registered-tab" role="tab" type="button" tabIndex={tab === 'registered' ? 0 : -1} onClick={() => selectTab('registered')} onKeyDown={tabKey}>ALREADY REGISTERED?</button>
         <button aria-controls="create-panel" aria-selected={tab === 'create'} className={'tab' + (tab === 'create' ? ' active' : '')} id="create-tab" role="tab" type="button" tabIndex={tab === 'create' ? 0 : -1} onClick={() => selectTab('create')} onKeyDown={tabKey}>JOIN THE SO/ COLLECTIVE</button>
       </nav>
       <section aria-labelledby="registered-tab" className="panel login-panel" id="registered-panel" role="tabpanel" hidden={tab !== 'registered'}>

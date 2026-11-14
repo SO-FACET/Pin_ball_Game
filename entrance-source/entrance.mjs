@@ -6,7 +6,7 @@ import { createJourneyScrollMap, JOURNEY_START_FRAME } from './journey-scroll.mj
 import { advanceJourneyFrame, createJourneyCompletion, FINAL_FRAME_HOLD_MS } from './journey-motion.mjs';
 import { createFrameRatePanel } from './frame-rate-panel.js';
 import { framePlacement } from '/frame-placement.js';
-import { siteSound, CHESS_HIT_FRAME } from '/sounds/site-audio.js?v=state-e407c7a78895';
+import { siteSound, CHESS_HIT_FRAME } from '/sounds/site-audio.js?v=state-772947c8390e';
 
 const $=id=>document.getElementById(id);
 const firstFrame=JOURNEY_START_FRAME,lastFrame=CHESS_HIT_FRAME;
@@ -122,7 +122,7 @@ function enterGame({fromChess=false}={}){
     history.pushState({...history.state,sofacetGame:true},'','/game');
   }
   gameRequested=true;cancelStartup();
-  cancelAnimationFrame(raf);raf=0;journey?.suspend();siteSound.handoff();
+  cancelAnimationFrame(raf);raf=0;journey?.suspend();siteSound.cards();
   assembly.finish();
   // Keep game work after the 3D loop stops. The origin/main loader covers real
   // game readiness, using the approved React cards.

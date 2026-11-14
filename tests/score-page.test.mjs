@@ -93,7 +93,7 @@ test('the leave warning opens Claim or discards the reward and opens Notify',asy
 
 test('internal game pages can open over the score without treating it as discarded',async()=>{
  const f=await controllerFixture();f.controller.show(3205,'completed-game');
- const link={id:'skip-game',target:'_top',hasAttribute:name=>name==='data-game-info'};
+ const link={id:'about-link',target:'_top',hasAttribute:name=>name==='data-game-info'};
  let prevented=false;
  f.events.get('click')({button:0,target:Object.assign(Object.create(f.element.prototype),{closest:()=>link}),preventDefault(){prevented=true;}});
  assert.equal(prevented,false);

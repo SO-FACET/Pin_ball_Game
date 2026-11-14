@@ -1,4 +1,4 @@
-import { siteSound, CHESS_HIT_FRAME } from './sounds/site-audio.js?v=frames-0316f0de1278';
+import { siteSound, CHESS_HIT_FRAME } from './sounds/site-audio.js?v=frames-772947c8390e';
 import { finishLoading } from './assets/loading/intro.js?v=return-24daee91';
 import { createLandingCopy } from './assets/kinetic-copy.js?v=frames-9defbfc30c94';
 import { createFrameSource } from './assets/frame-source.js?v=frames-23eb123206c8';
@@ -211,6 +211,7 @@ export async function createSequence(setInteractive, requestFrame, media) {
     status.hidden = true;
     document.body.dataset.game = 'visible';
     document.title = 'SO/ FACET — Pinball';
+    siteSound.handoff();siteSound.save();
     setGameVisibility(true);
     game.inert = false;
     game.removeAttribute('aria-hidden');
@@ -292,7 +293,7 @@ export async function createSequence(setInteractive, requestFrame, media) {
     const atEnd = displayedFrame === frameCount - 1 && cache.settled;
     if (main.inert !== atEnd) main.inert = atEnd;
     if (displayedFrame === frameCount - 1 && cache.settled) {
-      siteSound.handoff();
+      siteSound.cards();
       preloadGame();
       status.hidden = gameLoaded;
       status.textContent = 'Loading game…';

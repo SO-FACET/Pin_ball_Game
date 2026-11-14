@@ -96,7 +96,7 @@ function entrance(){
   history:{state:null,replaceState(value){this.state=value},pushState(value){this.state=value}},
   journeyScroll:{scrollAtFrame:()=>100},lastFrame:40,scrollY:100,
   document:{body:{dataset:{},setAttribute(){}}},location:{origin:'http://localhost',replace:url=>redirects.push(url)},
-  siteSound:{handoff(){},save(){}},assembly:{finish(){}},
+  siteSound:{cards(){events.push('cards-audio')},handoff(){events.push('stop-audio')},save(){}},assembly:{finish(){}},
   journey:{suspend(){},dispose(){events.push('dispose-journey')}},
   MutationObserver:class{constructor(callback){this.callback=callback;observer=this}observe(){}disconnect(){this.disconnected=true}},
   cancelAnimationFrame(){},
@@ -116,6 +116,7 @@ function entrance(){
 test('a cold download lasting over 45 seconds still hands off when ready',()=>{
  const view=entrance();view.enter();view.frameLoaded();
  view.advance(75000);
+ assert.equal(view.events.includes('stop-audio'),false,'Website music continues during cards and game loading');
  assert.equal(view.loader.failures,0,'Elapsed time alone is not a loading failure');
  assert.equal(view.context.state().gameVisible,false);
  assert.equal(view.stage.dataset.ready,'false');
@@ -123,6 +124,7 @@ test('a cold download lasting over 45 seconds still hands off when ready',()=>{
  assert.equal(view.loader.readyCalls,1);
  assert.equal(view.context.state().gameLoaded,true);
  assert.equal(view.context.state().gameVisible,true);
+ assert.equal(view.events.includes('stop-audio'),true,'Website music stops when the game appears');
  assert.equal(view.context.document.body.dataset.game,'visible');
  view.advance(350);
  assert.equal(view.context.journey,null);
@@ -138,9 +140,9 @@ test('a delayed iframe document can load after the former deadline',()=>{
 test('chess handoff releases the entrance before allocating the game',()=>{
  const view=entrance();view.enter({fromChess:true});
  assert.equal(view.loader.options.story,true,'The chess-room handoff explicitly keeps the cards');
- assert.deepEqual(view.events,['show-loader','dispose-journey','load-game']);
+ assert.deepEqual(view.events,['cards-audio','show-loader','dispose-journey','load-game']);
  assert.equal(view.context.journey,null,'No concurrent entrance and table GPU allocations');
- view.enter();assert.equal(view.events.length,3,'Repeated input cannot allocate twice');
+ view.enter();assert.equal(view.events.length,4,'Repeated input cannot allocate twice');
 });
 
 test('child initialization failures recover once in a fresh standalone game document',()=>{
