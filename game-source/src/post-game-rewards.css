@@ -70,7 +70,6 @@
 .rewards-unlocked-copy{margin:0;font-size:16px;font-weight:400;line-height:1.4}
 @media(max-width:700px){.rewards-intro{margin-left:0}}
 
-#post-game-rewards[open] #skip-game{display:none}
 .flow-updates{display:inline-flex;min-height:44px;align-items:center;margin-top:20px;color:#d6c6e5;font-size:14px;line-height:1.5;text-underline-offset:4px}
 .rewards-board-link{position:relative;z-index:1;display:block;min-height:44px;margin:24px auto 0;padding:10px 0;border:0;border-radius:0;background:transparent;color:#ddc0ee;font:400 14px/1.5 'Josefin Sans',sans-serif}
 .rewards-board-link:hover{background:transparent;text-decoration:underline;text-underline-offset:4px}

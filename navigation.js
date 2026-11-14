@@ -192,7 +192,7 @@ for (const [label, icon, href] of [
   item.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' + icon + '</svg>';socials.append(item);
 }
 small.append(socials);
-panel.replaceChildren(about, play, menuLink('BUY NOW', '/notify'), menuLink('How SO/ COINS work', '/how-coins-work'), accountLink, small);
+panel.replaceChildren(about, play, menuLink('BUY NOW?', '/notify'), menuLink('How SO/ COINS work', '/how-coins-work'), accountLink, small);
 function syncAccountLink() {
   const next = document.documentElement.hasAttribute('data-signed-in') ? coinsLink : joinLink;
   if (next !== accountLink) { accountLink.replaceWith(next); accountLink = next; }
