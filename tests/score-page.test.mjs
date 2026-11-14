@@ -32,6 +32,15 @@ test('zero and low scores retain replay without offering to save unredeemable po
   assert.match(html,/id="rewards-retry"/);assert.match(html,/id="rewards-low-copy"/);
  }
 });
+test('score sharing sends every destination to the primary launch domain',async()=>{
+ const shareBundle=await build({entryPoints:[fileURLToPath(new URL('../shared/ShareScoreDialog.jsx',import.meta.url))],bundle:true,platform:'node',format:'cjs',packages:'external',loader:{'.css':'empty'},write:false});
+ const shareModule={exports:{}};vm.runInNewContext(shareBundle.outputFiles[0].text,{module:shareModule,exports:shareModule.exports,require});
+ const html=renderToStaticMarkup(React.createElement(shareModule.exports.default,{score:3205,dialogRef:{current:null}}));
+ const destinations=[...html.matchAll(/href="([^"]+)"/g)].map(([,href])=>href.replaceAll('&amp;','&')).filter(href=>/^https:\/\/(wa\.me|t\.me|x\.com|mail\.google\.com)\//.test(href));
+ assert.equal(destinations.length,4);
+ for(const href of destinations)assert.ok(decodeURIComponent(href).includes('https://sofacet.com/game'),href);
+ assert.match(html,/sofacet\.com\/game/);assert.doesNotMatch(html,/shopsofacet\.com/);
+});
 test('the three React actions invoke their existing callbacks once',()=>{
  const calls=[],props={result:result(4800),onSave:()=>calls.push('save'),onReplay:()=>calls.push('replay'),onLeaderboard:()=>calls.push('leaderboard')};
  const nodes=elements(ScorePage(props));

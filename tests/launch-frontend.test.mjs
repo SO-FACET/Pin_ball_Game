@@ -35,3 +35,11 @@ test('public sign-in cannot trust preview storage or use a demonstration verific
  for(const text of ['createPreviewAccount','readPreviewAccount','writePreviewAccount','previewCode','isPreview','frontend-preview','123456'])assert.ok(!source.includes(text),text);
  assert.match(source,/request\('\/api\/account\/otp\/verify'/);assert.match(source,/result.verified!==true/);
 });
+test('unconfigured page builds use the launch domain for social previews',t=>{
+ const site=process.env.SITE_URL,app=process.env.APP_ORIGIN;
+ t.after(()=>{if(site===undefined)delete process.env.SITE_URL;else process.env.SITE_URL=site;if(app===undefined)delete process.env.APP_ORIGIN;else process.env.APP_ORIGIN=app});
+ delete process.env.SITE_URL;delete process.env.APP_ORIGIN;
+ const html=withSiteMetadata('<html><head></head><body></body></html>');
+ assert.match(html,/og:image" content="https:\/\/sofacet\.com\/assets\/sofacet-share-20261114-v2.jpg"/);
+ assert.match(html,/twitter:image" content="https:\/\/sofacet\.com\/assets\/sofacet-share-20261114-v2.jpg"/);
+});

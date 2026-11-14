@@ -131,12 +131,17 @@ const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=
 const server=createServer(async(request,response)=>{
  let path='';
  try{
-  path=decodeURIComponent(new URL(request.url,'http://localhost').pathname);
+  const requested=new URL(request.url,'http://localhost');
+  // Enable the launch aliases only with the production origin. Keep Railway
+  // health checks and previews on their own hostname, and never redirect POSTs.
+  if(process.env.APP_ORIGIN==='https://sofacet.com'&&['GET','HEAD'].includes(request.method)&&/^(?:www\.sofacet\.com|shopsofacet\.com)(?::\d+)?$/i.test(request.headers.host||'')){
+   response.writeHead(308,{Location:'https://sofacet.com'+requested.pathname+requested.search,'Cache-Control':'no-cache'});response.end();return;
+  }
+  path=decodeURIComponent(requested.pathname);
   if(path==='/health'&&(request.method==='GET'||request.method==='HEAD'))return json(response,200,{status:'ok'});
   if(path==='/api/media-config'&&request.method==='GET')return json(response,200,{baseURL:process.env.MEDIA_CDN_BASE_URL||'',artworkBaseURL:artworkCDN,entranceManifestURL:process.env.ENTRANCE_VIDEO_MANIFEST_URL||'',entrance4kManifestURL:process.env.ENTRANCE_VIDEO_4K_MANIFEST_URL||''});
   if(path.startsWith('/api/'))return await api(request,response,path);
   if(request.method!=='GET'&&request.method!=='HEAD')fail(405,'Method not allowed.');
-  const requested=new URL(request.url,'http://localhost');
   if(path==='/my-coins'||path==='/account.html'&&requested.searchParams.get('view')!=='signin'){
    requested.pathname='/join';requested.searchParams.delete('view');
    response.writeHead(302,{Location:requested.pathname+requested.search,'Cache-Control':'no-store'});response.end();return;
