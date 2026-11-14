@@ -143,3 +143,27 @@ body[data-menu-open] .menu-backdrop{opacity:1;visibility:visible;pointer-events:
 :root body :is(.site-nav,.site-navigation) .play-now:is(:hover,:focus-visible)::before,
 :root body #game-header .skip-game:is(:hover,:focus-visible)::before,
 :root #journey-resume:is(:hover,:focus-visible)::before{background:#e5d8f3}
+
+/* Keep the Play Pinball header action consistent on every page. */
+:root body :is(.site-nav,.site-navigation) .play-now,
+:root body :is(.site-nav,.site-navigation) .play-now:is(:hover,:focus-visible){
+ background:#8f799f;color:#fff;clip-path:polygon(10px 0,calc(100% - 10px) 0,100% 10px,100% 100%,0 100%,0 10px);
+}
+:root body :is(.site-nav,.site-navigation) .play-now::before{
+ background:#110b19;clip-path:polygon(9px 0,calc(100% - 9px) 0,100% 9px,100% 100%,0 100%,0 9px);
+}
+:root body :is(.site-nav,.site-navigation) .play-now:is(:hover,:focus-visible){background:#c1a1d9}
+:root body :is(.site-nav,.site-navigation) .play-now:is(:hover,:focus-visible)::before{background:#25152f}
+@media(max-width:700px){
+ :root .site-nav:has(.play-now){left:calc(20px + env(safe-area-inset-left,0px));right:calc(12px + env(safe-area-inset-right,0px));width:auto;height:94px;align-items:flex-end;gap:8px}
+ :root body .site-nav:has(.play-now):not(.landing-actions) .play-now{flex:0 0 calc((100% - 8px)/2);width:calc((100% - 8px)/2)}
+ :root .site-nav:has(.play-now) .menu-toggle{position:absolute;top:0;right:0}
+ :root body :is(.site-nav,.site-navigation) .play-now{height:34px;min-height:34px;font-size:11px;transform:none}
+}
+
+:root body :is(.site-nav,.site-navigation) .play-now.landing-about,
+:root body :is(.site-nav,.site-navigation) .play-now.landing-about:is(:hover,:focus-visible){color:#d9ed37}
+@media(max-width:700px){
+ :root body #game-header .site-nav:has(.play-now){gap:8px}
+ :root body #game-header .site-nav:has(.play-now) .skip-game{flex:0 0 calc((100% - 8px)/2);width:calc((100% - 8px)/2);height:34px;min-height:34px;font-size:11px;transform:none}
+}

@@ -5,7 +5,7 @@ export const rewardMoney=(points:number)=>'₹'+numbers.format(rewardFromPoints(
 export const underAgeCopy="Thanks for playing. You need to be 18 or older to save scores and earn SO/ COINS, but you're welcome to keep playing as a guest.";
 export function resultHeadline(points:number,previousBest:number|null=null){
  if(previousBest!==null&&previousBest>=0)return points>previousBest?'New best. Your SO/ COINS just went up.':`Your best is still ${formatPoints(previousBest)} SO/ COINS (${rewardMoney(previousBest)}). Beat it to earn more.`;
- return points<10?'Not much to keep yet.':'Here’s what’s yours.';
+ return points<10?'Not much to keep yet.':'Here’s what’s yours!';
 }
 export const leaveCopy=(points:number)=>({title:`Leaving ${rewardMoney(points)} on the table?`,support:`Your ${formatPoints(points)} SO/ COINS disappear when you leave.`});
 export const capitaliseName=(value:string)=>value.replace(/^\s*\p{L}/u, first=>first.toLocaleUpperCase());

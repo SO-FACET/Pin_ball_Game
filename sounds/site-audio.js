@@ -1,27 +1,30 @@
 export const CHESS_HIT_FRAME = 2164;
+const MUSIC_START = 75;
+const musicPositionKey = 'sofacet-site-music-v2';
 
 export function createSiteSound() {
   let context, master, musicGain, rollingGain, rolling, hit;
-  let loading, stopTimer, duckTimer, pauseTimer, requested = false;
-  let enabled = true, unlocked = false, active = !document.body?.hasAttribute('data-loading'), moving = false, lastFrame = 240, lastMove = 0;
+  let loading, stopTimer, duckTimer, pauseTimer, requested = false, playGeneration = 0;
+  let enabled = true, unlocked = false, playing = false, started = false, active = !document.body?.hasAttribute('data-loading'), moving = false, lastFrame = 240, lastMove = 0;
   const music = new Audio();
   music.preload = 'none';
-  music.src = '/sounds/sofacet-experience-music.mp3';
-  let musicPosition = 52;
+  music.src = '/sounds/SO-FACET-landing-audio.mp3';
+  let musicPosition = MUSIC_START;
   try {
     enabled = localStorage.getItem('sofacet-site-sound') !== 'off';
-    const saved = Number(sessionStorage.getItem('sofacet-site-music'));
-    if (Number.isFinite(saved) && saved >= 52) musicPosition = saved;
+    started = sessionStorage.getItem('sofacet-site-sound-active') === 'on';
+    const saved = Number(sessionStorage.getItem(musicPositionKey));
+    if (Number.isFinite(saved) && saved >= MUSIC_START) musicPosition = saved;
   } catch {}
-  music.addEventListener('loadedmetadata', () => { music.currentTime = musicPosition < music.duration ? musicPosition : 52; });
-  music.addEventListener('ended', () => { music.currentTime = 52; if (audible()) void music.play().catch(() => {}); });
-  const audible = () => enabled && unlocked && active && !document.hidden;
+  music.addEventListener('loadedmetadata', () => { music.currentTime = musicPosition < music.duration ? musicPosition : MUSIC_START; });
+  music.addEventListener('ended', () => { music.currentTime = MUSIC_START; if (audible()) playMusic(); });
+  const audible = () => enabled && unlocked && active;
   const fade = (node, value, seconds = .08) => node.gain.setTargetAtTime(value, context.currentTime, seconds);
   const musicLevel = () => fade(musicGain, duckTimer ? .045 : moving ? .065 : .1, .18);
   const paint = () => {
     const button = document.querySelector('#site-sound');
     if (!button) return;
-    const on = enabled && unlocked;
+    const on = enabled && unlocked && playing && active;
     const previous = button.dataset.on;
     if (previous === String(on)) return;
     button.dataset.on = String(on);
@@ -51,6 +54,14 @@ export function createSiteSound() {
     rollingGain = context.createGain(); rollingGain.gain.value = 0; rollingGain.connect(master);
     context.addEventListener('statechange', () => { unlocked = context.state === 'running'; paint(); });
   }
+  function playMusic() {
+    const generation = ++playGeneration;
+    void music.play().then(() => {
+      if (generation !== playGeneration) return;
+      playing = true; started = true; paint();
+    }).catch(() => { if (generation === playGeneration) { playing = false; paint(); } });
+  }
+  function pauseMusic() { ++playGeneration; music.pause(); playing = false; paint(); }
   function loadEffects() {
     if (!loading) loading = Promise.all(['sofacet-ball-roll.wav', 'sofacet-queen-impact.mp3'].map(async file => {
       const response = await fetch('/sounds/' + file);
@@ -66,11 +77,11 @@ export function createSiteSound() {
   function update() {
     if (!context) return;
     clearTimeout(pauseTimer);
-    fade(master, audible() ? 1 : 0, .1);
-    if (audible()) { musicLevel(); void music.play().catch(() => {}); }
+    fade(master, audible() ? 1 : 0, audible() ? .3 : .1);
+    if (audible()) { musicLevel(); playMusic(); }
     else {
       moving = false; clearTimeout(stopTimer); fade(rollingGain, 0, .04);
-      pauseTimer = setTimeout(() => { if (!audible()) { music.pause(); void context.suspend(); } }, 400);
+      pauseTimer = setTimeout(() => { if (!audible()) { pauseMusic(); void context.suspend(); } }, 400);
     }
     paint();
   }
@@ -80,11 +91,12 @@ export function createSiteSound() {
     setup();
     void context.resume().then(() => { unlocked = context.state === 'running'; update(); }).catch(() => {});
     // Keep play() in the gesture handler for Safari's media activation rule.
-    void music.play().catch(() => {});
+    playMusic();
     void loadEffects();
   }
   function stopRolling() {
     moving = false;
+    clearTimeout(stopTimer);
     if (context) { fade(rollingGain, 0, .045); musicLevel(); }
   }
   function impact() {
@@ -101,13 +113,17 @@ export function createSiteSound() {
   }
   let hitArmed = true;
   return {
+    paint,
     unlock,
     toggle() {
-      enabled = !enabled || !unlocked;
+      enabled = !(enabled && unlocked && playing && active);
+      if (!enabled) started = false;
       try { localStorage.setItem('sofacet-site-sound', enabled ? 'on' : 'off'); } catch {}
       if (enabled) unlock(); else update();
+      paint();
     },
     setActive(value) { if (active === value) return; active = value; if (active && enabled && requested) unlock(); else update(); },
+    cards() { stopRolling(); },
     handoff() {
       if (!active) return;
       active = false;
@@ -118,7 +134,7 @@ export function createSiteSound() {
       fade(rollingGain, 0, .025); fade(musicGain, 0, .035);
       // Keep the impact's short reverb audible across the visual transition.
       pauseTimer = setTimeout(() => {
-        if (!active) { music.pause(); fade(master, 0, .025); void context.suspend(); }
+        if (!active) { pauseMusic(); fade(master, 0, .025); void context.suspend(); }
       }, 500);
     },
     frame(frame) {
@@ -127,7 +143,7 @@ export function createSiteSound() {
       if (frame < CHESS_HIT_FRAME - 12) hitArmed = true;
       if (previous < CHESS_HIT_FRAME && frame >= CHESS_HIT_FRAME && hitArmed) { hitArmed = false; impact(); }
       moving = false;
-      if (context && audible()) {
+      if (context && audible() && !document.hidden) {
         clearTimeout(stopTimer);
         moving = frame < CHESS_HIT_FRAME && previous < CHESS_HIT_FRAME;
         const speed = Math.abs(frame - previous) / Math.max(1, (now - lastMove) * .06);
@@ -137,8 +153,8 @@ export function createSiteSound() {
       }
       lastMove = now;
     },
-    visibility() { stopRolling(); if (document.hidden) update(); else if (enabled && context) unlock(); },
-    save() { try { if (music.readyState && music.currentTime >= 52) sessionStorage.setItem('sofacet-site-music', String(music.currentTime)); sessionStorage.setItem('sofacet-site-sound-active', enabled && unlocked ? 'on' : 'off'); } catch {} },
+    visibility() { stopRolling(); if (!document.hidden && enabled && context) unlock(); },
+    save() { try { if (music.readyState && music.currentTime >= MUSIC_START) sessionStorage.setItem(musicPositionKey, String(music.currentTime)); sessionStorage.setItem('sofacet-site-sound-active', enabled && started ? 'on' : 'off'); } catch {} },
     get enabled() { return enabled && unlocked; },
   };
 }
@@ -164,4 +180,6 @@ for (const type of ['pointerdown', 'keydown']) document.addEventListener(type, e
 document.addEventListener('visibilitychange', () => siteSound.visibility());
 window.addEventListener('pagehide', () => { siteSound.save(); siteSound.setActive(false); });
 window.addEventListener('pageshow', () => siteSound.setActive(!document.body.hasAttribute('data-loading') && document.body.dataset.game !== 'visible'));
+// Keep the displayed choice stable while a new page waits for browser audio activation.
+siteSound.paint();
 siteSound.unlock();

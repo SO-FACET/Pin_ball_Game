@@ -167,8 +167,8 @@ function menuLink(label, href, className = 'menu-item') {
   if (gamePage && href && infoHref(href)) link.setAttribute('data-game-info','');
   return link;
 }
-const play = gamePage ? document.createElement('button') : menuLink(inGame ? 'Back to game' : 'Play Pinball', '/game');
-if (gamePage) {play.type = 'button';play.className = 'menu-item';play.textContent = 'Back to game';play.setAttribute('data-menu-close', '');}
+const play = gamePage ? document.createElement('button') : menuLink('Play Pinball', '/game');
+if (gamePage) {play.type = 'button';play.className = 'menu-item';play.textContent = 'Play Pinball';play.setAttribute('data-menu-close', '');}
 if (inGameInfo) play.setAttribute('data-game-return','');
 const joinLink = menuLink('JOIN THE SO/ COLLECTIVE', '/join', 'menu-item menu-join');
 const coinsLink = menuLink('MY SO/ COINS', '/sign-in', 'menu-item menu-join');
@@ -192,7 +192,7 @@ for (const [label, icon, href] of [
   item.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' + icon + '</svg>';socials.append(item);
 }
 small.append(socials);
-panel.replaceChildren(play, menuLink('How SO/ COINS work', '/how-coins-work'), about, accountLink, small);
+panel.replaceChildren(about, play, menuLink('BUY NOW', '/notify'), menuLink('How SO/ COINS work', '/how-coins-work'), accountLink, small);
 function syncAccountLink() {
   const next = document.documentElement.hasAttribute('data-signed-in') ? coinsLink : joinLink;
   if (next !== accountLink) { accountLink.replaceWith(next); accountLink = next; }

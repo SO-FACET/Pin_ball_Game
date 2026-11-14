@@ -11,9 +11,10 @@ export type GameSound=keyof typeof clips;
 export function createGameSound(){
  let context:AudioContext|undefined,master:GainNode|undefined,loading:Promise<void>|undefined;
  let volume=100,muted=false,musicWanted=false,musicStartAt=0;
+ try{muted=localStorage.getItem('sofacet-site-sound')==='off'}catch{}
  let music:{source:AudioBufferSourceNode;gain:GainNode}|undefined;
  const buffers=new Map<GameSound,AudioBuffer>(),lastPlayed=new Map<GameSound,number>();
- const setup=()=>{if(!context){context=new AudioContext();master=context.createGain();master.gain.value=volume/100;master.connect(context.destination)}};
+ const setup=()=>{if(!context){context=new AudioContext();master=context.createGain();master.gain.value=muted?0:volume/100;master.connect(context.destination)}};
  const applyVolume=()=>{if(context&&master){const now=context.currentTime;master.gain.cancelScheduledValues(now);master.gain.setTargetAtTime(muted?0:volume/100,now,.015)}};
  const startMusic=()=>{
   if(!musicWanted||music||!context||!master)return;
@@ -50,7 +51,7 @@ export function createGameSound(){
  return {
   get volume(){return volume},get muted(){return muted},load,unlock,play,
   setVolume(value:number){volume=Number.isFinite(value)?Math.min(100,Math.max(0,value)):0;applyVolume()},
-  setMuted(value:boolean){muted=value;applyVolume();if(!muted)unlock()},
+  setMuted(value:boolean){muted=value;try{localStorage.setItem('sofacet-site-sound',muted?'off':'on')}catch{}applyVolume();if(!muted)unlock()},
   setMusic(active:boolean,delay=0){
    if(musicWanted===active)return;musicWanted=active;
    if(active){setup();musicStartAt=context!.currentTime+delay;void load().then(startMusic);return}

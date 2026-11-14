@@ -156,16 +156,16 @@ Tests use temporary storage and synthetic services. The local smoke check starts
 
 | Table interaction | Score |
 | --- | ---: |
-| SOFACET letter target | +1,000 |
-| Triangular block | +100 |
-| Ring block | +50 |
-| Cyan bumper | −500 |
+| SOFACET letter target | +1,500 |
+| Triangular block | +200 |
+| Ring block | +100 |
+| Cyan bumper | +500 |
 | Neon green bumper | +500 |
-| Drum base bumper | +200 |
+| Drum base bumper | +500 |
 | Launcher | 0 |
-| Cave | +400 |
+| Cave | +800 |
 
-The score cannot fall below zero. A negative bumper deducts up to 500 points from the current total without carrying a negative balance into later hits.
+The score cannot fall below zero.
 
 Scoring is shared between the client simulation and server replay verification. Keep replay versions, collision data and simulation parameters in sync when changing gameplay.
 
