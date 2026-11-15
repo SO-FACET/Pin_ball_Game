@@ -1,6 +1,29 @@
 // This facade is safe before analytics loads, in Node tests, and when consent is off.
 function api(){try{return globalThis.window?.top?.sofacetAnalytics}catch{return globalThis.window?.sofacetAnalytics}}
 export function track(name,properties={}){try{api()?.track(name,properties)}catch{}}
+let pendingGameActivity,gameActivityHost;
+function publishGameActivity(){
+ try{
+  const analytics=api();
+  if(typeof analytics?.setGameActivity!=='function')return;
+  analytics.setGameActivity(pendingGameActivity);
+  gameActivityHost?.removeEventListener?.('sofacet:analytics-ready',publishGameActivity);
+  gameActivityHost=undefined;
+ }catch{}
+}
+// Keep only the current boolean if the outer runtime has not installed yet.
+// Consent and duration clocks remain owned by that runtime.
+export function setGameActivity(active){
+ if(typeof active!=='boolean')return;
+ pendingGameActivity=active;
+ try{
+  if(!gameActivityHost){
+   gameActivityHost=globalThis.window?.top||globalThis.window;
+   gameActivityHost?.addEventListener?.('sofacet:analytics-ready',publishGameActivity);
+  }
+ }catch{}
+ publishGameActivity();
+}
 export function captureError(error,context={}){try{api()?.captureError(error,context)}catch{}}
 export function refreshAnalyticsIdentity(){try{void api()?.refreshIdentity()}catch{}}
 function resetAnalyticsIdentity(){try{api()?.resetIdentity()}catch{}}

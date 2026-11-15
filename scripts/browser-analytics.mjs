@@ -33,6 +33,28 @@ function mockGoogleTag(){
  for(const item of window.dataLayer)capture(item);
  window.dataLayer.push=function(){for(const item of arguments)capture(item);return Array.prototype.push.apply(this,arguments);};
 }
+function installDurationFixtureClock(){
+ // Only the top document's analytics clock is controlled. An embedded real
+ // game's performance clock, RAF timestamps and physics are left native.
+ if(window!==window.top)return;
+ const nativeNow=performance.now.bind(performance);
+ let fixed=null,hidden=false;
+ const descriptors={hidden:Object.getOwnPropertyDescriptor(document,'hidden'),visibilityState:Object.getOwnPropertyDescriptor(document,'visibilityState')};
+ Object.defineProperty(performance,'now',{configurable:true,value:()=>fixed===null?nativeNow():fixed});
+ window.__durationFixture={
+  freeze(){if(fixed===null)fixed=Math.ceil(nativeNow());return fixed;},
+  advance(ms){if(fixed===null||!Number.isFinite(ms)||ms<0)throw Error('Invalid controlled duration advance');fixed+=ms;},
+  visibility(value){
+   hidden=!value;
+   Object.defineProperties(document,{hidden:{configurable:true,get:()=>hidden},visibilityState:{configurable:true,get:()=>hidden?'hidden':'visible'}});
+   document.dispatchEvent(new Event('visibilitychange'));
+  },
+  restoreVisibility(){
+   for(const key of ['hidden','visibilityState']){if(descriptors[key])Object.defineProperty(document,key,descriptors[key]);else delete document[key];}
+   document.dispatchEvent(new Event('visibilitychange'));
+  },
+ };
+}
 try{
  for(const workflow of workflows)await withRewardsSite(async({origin,awards})=>{
   const context=await browser.newContext({viewport:{width:1280,height:900},reducedMotion:'reduce'});
@@ -55,6 +77,7 @@ try{
   const providerGate=new Promise(resolve=>{releaseProvider=resolve;});
   const pendingProvider=new Promise(resolve=>{providerRequested=resolve;});
   try{
+   await context.addInitScript(installDurationFixtureClock);
    await context.exposeFunction('__collectGaEvent',item=>gaEvents.push(item));
    page.on('pageerror',error=>failures.push(error.message));
    await context.route('https://www.googletagmanager.com/**',route=>{
@@ -129,6 +152,38 @@ try{
    await waitForGa('game_paused');
    assert.equal(gaItems('game_paused').length,regrantStart+1,'Anonymous identity reset keeps current analytics consent');
    report.consentChecksPassed=true;
+   const pageDurationStart=gaEvents.length;
+   await page.bringToFront();
+   await page.evaluate(()=>{
+    window.__durationFixture.freeze();
+    history.pushState({},'','/about?token=private');
+    window.__durationFixture.advance(125);
+    window.__durationFixture.visibility(false);
+    window.__durationFixture.advance(10000);
+    window.__durationFixture.visibility(true);
+    window.__durationFixture.advance(75);
+    history.replaceState({},'','/about#secret');
+    history.pushState({},'','/privacy');
+   });
+   await waitForGa('page_leave',properties=>properties.page_path==='/about'&&properties.duration_ms===200);
+   const pageDurationItems=name=>gaEvents.slice(pageDurationStart).filter(item=>item[0]==='event'&&item[1]===name).map(item=>item[2]);
+   assert.deepEqual(pageDurationItems('page_view').map(item=>item.page_path),['/about','/privacy'],'Hidden/same-path transitions do not add pageviews');
+   assert.equal(pageDurationItems('page_engagement').filter(item=>item.page_path==='/about').reduce((sum,item)=>sum+item.page_active_ms,0),200,'Foreground deltas exclude the controlled hidden interval');
+   await page.evaluate(()=>{
+    window.__durationFixture.advance(50);
+    window.dispatchEvent(new PageTransitionEvent('pagehide',{persisted:true}));
+    window.dispatchEvent(new PageTransitionEvent('pagehide',{persisted:true}));
+    window.__durationFixture.advance(60000);
+    window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true}));
+    window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true}));
+    window.__durationFixture.advance(25);
+    history.pushState({},'','/contact');
+    window.__durationFixture.restoreVisibility();
+   });
+   await waitForGa('page_leave',properties=>properties.page_path==='/privacy'&&properties.duration_ms===25);
+   assert.deepEqual(pageDurationItems('page_leave').filter(item=>item.page_path==='/privacy').map(item=>item.duration_ms),[50,25],'Repeated lifecycle events neither duplicate nor retain the cached-page gap');
+   assert.deepEqual(pageDurationItems('page_view').map(item=>item.page_path),['/about','/privacy','/privacy','/contact']);
+   report.pageDurationChecks={passed:true,controlledTopClock:true,syntheticVisibilityAndPageTransitions:true,foregroundMs:200,hiddenMsExcluded:10000,cachedGapMsExcluded:60000};
    for(const path of Object.keys(routeDocuments)){
     const response=await page.request.get(origin+path);
     assert.equal(response.status(),path==='/404'?404:200,path+' is served');
@@ -276,7 +331,116 @@ try{
     const embeddedPaths=gaEvents.slice(embeddedStart).filter(item=>item[0]==='event'&&item[1]==='page_view').map(item=>item[2].page_path);
     assert.deepEqual(embeddedPaths,['/about','/privacy','/game'],'Embedded navigation delegates each outer screen once');
     report.embeddedPaths=embeddedPaths;
+
+    // A test-owned parent embeds the production game. Only this parent's
+    // analytics clock is frozen; the child's renderer, RAF and physics remain
+    // native. Real controls and parent postMessages drive every activity change.
+    await page.goto(origin+'/privacy');
+    await page.waitForFunction(()=>window.sofacetAnalytics?.getStatus().google);
+    await setConsent(false);
+    const iframeDurationStart=gaEvents.length,iframeProviderStart=providerRequests.length;
+    await page.evaluate(()=>{
+     window.__durationFixture.freeze();history.replaceState({},'','/game');
+     const frame=document.createElement('iframe');frame.id='duration-game-child';frame.name='duration-game-child';
+     frame.src='/game?loader=parent';frame.style='position:fixed;inset:0;width:100%;height:100%;border:0;z-index:10000';
+     document.body.append(frame);
+    });
+    const child=page.frameLocator('#duration-game-child');
+    await child.locator('#stage[data-ready="true"]').waitFor({timeout:90000});
+    assert.equal(await child.locator('#quality').inputValue(),'low');
+    assert.equal(await child.locator('body').evaluate(()=>Object.hasOwn(window,'__durationFixture')),false,'The real child clock is not controlled');
+    await child.locator('body').evaluate(()=>{
+     window.__durationParentVisible=null;
+     addEventListener('message',event=>{
+      if(event.source===parent&&event.origin===location.origin&&event.data?.type==='sofacet:experience-visibility')window.__durationParentVisible=event.data.visible;
+     });
+    });
+    async function childVisibility(value){
+     await page.evaluate(visible=>document.getElementById('duration-game-child').contentWindow.postMessage({type:'sofacet:experience-visibility',visible},location.origin),value);
+     await page.waitForFunction(visible=>document.getElementById('duration-game-child').contentWindow.__durationParentVisible===visible,value);
+    }
+    async function childFrames(){await child.locator('body').evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));}
+    async function childRunning(){
+     if(await child.locator('#pause-resume').isVisible())await child.locator('#pause-resume').click();
+     assert.equal(await child.locator('#pause').getAttribute('aria-pressed'),'false','The real child game is running');
+     await childFrames();
+    }
+    const iframeItems=name=>gaEvents.slice(iframeDurationStart).filter(item=>item[0]==='event'&&item[1]===name).map(item=>item[2]);
+    const gameSegments=()=>iframeItems('game_engagement').map(item=>item.game_active_ms);
+    async function expectGameSegments(values){
+     const deadline=Date.now()+20000;
+     while(gameSegments().length<values.length&&Date.now()<deadline)await delay(25);
+     assert.deepEqual(gameSegments(),values,'Only consented, authoritative active-game intervals are emitted');
+    }
+    await childVisibility(true);
+    await child.locator('#start').click();
+    await page.waitForFunction(()=>{const button=document.getElementById('duration-game-child').contentDocument.getElementById('touch-launch');return button&&!button.hidden&&!button.disabled;});
+    await page.evaluate(()=>window.__durationFixture.advance(60000));
+    await childFrames();
+    assert.deepEqual(iframeItems('game_started'),[],'A real game started before consent is not collected');
+    assert.deepEqual(gameSegments(),[]);
+    assert.equal(providerRequests.length,iframeProviderStart,'The embedded game does not start a second provider');
+
+    await setConsent(true);
+    await page.waitForFunction(()=>window.sofacetAnalytics.getStatus().google);
+    await childRunning();
+    await page.evaluate(()=>window.__durationFixture.advance(1000));
+    await child.locator('#pause').click();
+    await expectGameSegments([1000]);
+    await page.evaluate(()=>window.__durationFixture.advance(60000));
+    await childFrames();assert.deepEqual(gameSegments(),[1000],'Paused time produces no game engagement');
+    await childRunning();
+    await page.evaluate(()=>window.__durationFixture.advance(2000));
+    await child.locator('#pause').click();
+    await expectGameSegments([1000,2000]);
+
+    await setConsent(false);
+    await childRunning();
+    await page.evaluate(()=>window.__durationFixture.advance(60000));
+    await childFrames();assert.deepEqual(gameSegments(),[1000,2000],'Revoked time is not retained or emitted');
+    await setConsent(true);
+    await page.waitForFunction(()=>window.sofacetAnalytics.getStatus().google);
+    await childRunning();
+    await page.evaluate(()=>window.__durationFixture.advance(500));
+    await child.locator('#pause').click();
+    await expectGameSegments([1000,2000,500]);
+
+    await childRunning();
+    await page.evaluate(()=>window.__durationFixture.advance(750));
+    await child.getByRole('button',{name:'Open navigation menu',exact:true}).click();
+    await child.locator('[data-menu-panel] [data-game-info][href^="/about"]').click();
+    await page.waitForURL('**/about');
+    await expectGameSegments([1000,2000,500,750]);
+    await page.evaluate(()=>window.__durationFixture.advance(60000));
+    const childInfo=child.frameLocator('#game-info-dialog iframe');
+    await childInfo.getByRole('button',{name:'Open navigation menu',exact:true}).click();
+    await childInfo.locator('[data-menu-panel] a[href^="/privacy"]:not([data-cookie-settings])').click();
+    await page.waitForURL('**/privacy');
+    await page.evaluate(()=>window.__durationFixture.advance(2500));
+    await childInfo.getByRole('button',{name:'Open navigation menu',exact:true}).click();
+    await childInfo.locator('[data-menu-panel] [data-game-return]').click();
+    await page.waitForURL('**/game');
+    await childRunning();
+    await page.evaluate(()=>window.__durationFixture.advance(250));
+    await child.locator('#pause').click();
+    await expectGameSegments([1000,2000,500,750,250]);
+
+    await childRunning();
+    await page.evaluate(()=>window.__durationFixture.advance(100));
+    await childVisibility(false);
+    await expectGameSegments([1000,2000,500,750,250,100]);
+    await page.evaluate(()=>window.__durationFixture.advance(60000));
+    await childVisibility(true);await childFrames();
+    await page.evaluate(()=>window.__durationFixture.advance(200));
+    await child.locator('#pause').click();
+    await expectGameSegments([1000,2000,500,750,250,100,200]);
+    report.iframeDurationChecks={passed:true,controlledParentClockOnly:true,childNativeClock:true,normalUiControls:true,controlledParentVisibilityMessages:true,preConsentMsExcluded:60000,revokedMsExcluded:60000,pausedMsExcluded:60000,infoMsExcluded:62500,parentInactiveMsExcluded:60000,gameSegmentsMs:gameSegments()};
    }else if(workflow==='claim')report.gameHooksOmitted='Explicit website mode; the complete macOS analytics gates exercise the real game.';
+   for(const item of gaEvents.filter(item=>item[0]==='event'))for(const key of ['duration_ms','page_active_ms','game_active_ms'])if(Object.hasOwn(item[2],key)){
+    const value=item[2][key];
+    assert.ok(typeof value==='number'&&Number.isFinite(value)&&Number.isInteger(value)&&value>=0&&value<=86400000,'Durations are finite bounded integer milliseconds');
+    if(key!=='duration_ms')assert.ok(value>0,'Engagement deltas are positive');
+   }
    assert.doesNotMatch(JSON.stringify(gaEvents),forbidden,'Workflow tracking omits entered details, OTP and editable share text');
    assert.ok(!providerRequests.some(url=>/posthog|analytics\.test/.test(url)),'GA-only fixture never activates replay/PostHog');
    assert.deepEqual(failures,[]);
@@ -302,6 +466,8 @@ try{
   assert.equal(claim?.gameQuality,'low','The complete gate records the real graphics mode');
   assert.equal(claim?.gameHooksPassed,true,'The complete gate must finish real game lifecycle checks');
   assert.deepEqual(claim?.embeddedPaths,['/about','/privacy','/game'],'The complete gate must finish embedded game navigation');
+  assert.equal(claim?.pageDurationChecks?.passed,true,'The complete gate must verify foreground page accounting');
+  assert.equal(claim?.iframeDurationChecks?.passed,true,'The complete gate must verify authoritative embedded game durations');
   summary.completeSuiteVerified=true;
  }
  summary.passed=true;
