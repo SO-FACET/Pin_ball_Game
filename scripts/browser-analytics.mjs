@@ -21,7 +21,8 @@ const browserType=require(process.env.SOFACET_PLAYWRIGHT_PATH||'playwright')[eng
 assert.ok(['chromium','webkit'].includes(engine),'Supported analytics browser engine');
 const output=resolve(process.env.SOFACET_ANALYTICS_OUTPUT||'work/analytics-browser/'+engine);
 await mkdir(output,{recursive:true});
-const browser=await browserType.launch({...engine==='chromium'?{args:['--enable-unsafe-swiftshader']}:{}});
+// The full WebGL fixture uses modern headless Chrome rather than the separate headless shell.
+const browser=await browserType.launch({...engine==='chromium'?{...gameMode==='full'?{channel:'chromium'}:{},args:['--enable-unsafe-swiftshader']}:{}});
 const previous={...process.env};
 Object.assign(process.env,{ANALYTICS_ENABLED:'true',GA4_MEASUREMENT_ID:'G-TEST123',POSTHOG_PUBLIC_KEY:'',POSTHOG_SESSION_REPLAY:'false',ANALYTICS_ID_SECRET:'',ARTWORK_CDN_BASE_URL:''});
 const summary={engine,gameMode,requiredCompleteSuite:requireComplete,scope:'Desktop browser functional checks against isolated rewards fixtures. Google SDK requests are intercepted with a mock tag; this does not prove real GA collection or physical-phone performance.',posthogEnabled:false,identifiedUsers:false,workflows:[],passed:false};
