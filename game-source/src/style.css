@@ -408,6 +408,12 @@ body.handheld:not(.inspect-mode) #stage:not(.has-scorecard){padding-top:var(--si
 /* Safari offsets nested fixed controls inside the collapsing grid header. */
 #game-header{position:fixed;inset:0 0 auto;height:0;align-content:normal}
 #game-header :is(.site-brand,.site-nav){position:absolute}
+/* The hidden mobile About action must not reserve the shared second nav row
+   over the pause and settings controls. */
+@media(max-width:700px){
+ :root #game-header .site-nav:has(.landing-about){left:auto;height:44px;align-items:center}
+ :root #game-header .site-nav:has(.landing-about) .menu-toggle{position:relative}
+}
 body.handheld .side-panel .card-face[aria-hidden="true"]{visibility:hidden}
 
 #stage[data-ready="false"] #viewport,#stage[data-ready="false"] #scorecard-panel{visibility:hidden}
