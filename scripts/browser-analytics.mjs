@@ -229,10 +229,15 @@ try{
    if(workflow!=='claim')assert.ok(!paths.includes('/coins-saved'),'Non-reward signup/sign-in must not claim a saved-coins screen');
    report.workflowPaths=paths;
    if(workflow==='claim'){
-    await page.evaluate(()=>{sessionStorage.setItem('sofacet-game-visited','1');localStorage.setItem('sofacet.controls-practised.v1','done');});
+    // These checks exercise real analytics hooks and controls. Full-quality
+    // rendering remains covered by the independent 3D browser jobs. Use the
+    // existing Low mode to limit GPU work in this Ubuntu functional fixture.
+    await page.evaluate(()=>{sessionStorage.setItem('sofacet-game-visited','1');localStorage.setItem('sofacet.controls-practised.v1','done');localStorage.setItem('sofacet.game-quality.v1','low');});
     const readyCount=gaItems('game_ready').length;
     await page.goto(origin+'/game');
     await page.waitForSelector('#stage[data-ready="true"]',{timeout:90000});
+    report.gameQuality=await page.locator('#quality').inputValue();
+    assert.equal(report.gameQuality,'low','The isolated analytics fixture uses the existing Low graphics mode');
     await waitForGa('game_ready');
     assert.equal(gaItems('game_ready').length,readyCount+1,'Standalone game becomes ready once');
     const startedCount=gaItems('game_started').length;
