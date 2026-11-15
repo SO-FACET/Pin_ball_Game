@@ -5,6 +5,7 @@ import '../../collective-source/reward-notice.css';
 import {leaveCopy} from './player-copy';
 import {rewardFromPoints} from '../../shared/reward-value.js';
 import {setScreenRoute,writeScreenData} from '../../site-routes.js';
+import {track} from '../../shared/analytics.js';
 
 export type CompletedGameResult=Readonly<{points:number;rewardValue:number;completedAt:number;status:'completed';gameId?:string}>;
 export function captureGameResult(finalScore:number,gameId?:string):CompletedGameResult{
@@ -38,7 +39,7 @@ export function connectPostGameRewards(onRegister:(result:CompletedGameResult,op
   const opener=$(current==='leave'?'rewards-keep':'rewards-register');
   dialog.close();onRegister(result,opener);
  }
- function notify(){discard();window.top!.location.assign('/notify')}
+ function notify(){if(unsaved())track('reward_discarded');discard();window.top!.location.assign('/notify')}
  function discard(){discarded=true;result=null;writeScreenData('reward',null)}
  function replay(){discarded=true;dialog.close();onRetry()}
  function world(){discarded=true;window.top!.location.assign(destination)}

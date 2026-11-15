@@ -49,7 +49,7 @@ test('the three React actions invoke their existing callbacks once',()=>{
 });
 
 async function controllerFixture(){
- const nodes=new Map(),events=new Map(),captured={};
+ const nodes=new Map(),events=new Map(),captured={},analytics=[];
  const node=id=>{
   if(!nodes.has(id))nodes.set(id,{id,hidden:false,open:false,dataset:{},style:{setProperty(){}},offsetTop:1,offsetHeight:1,
    setAttribute(key,value){this[key]=value},getAttribute(key){return this[key]},focus(){captured.focused=id},prepend(){},querySelector:selector=>node(id+selector),
@@ -60,13 +60,13 @@ async function controllerFixture(){
  const compiled=await transform(source,{loader:'ts',format:'cjs'}),exports={};
  const context={exports,module:{exports},Date,Math,Number,URL,Element:class{},location:{origin:'http://test.local',href:'http://test.local/play.html'},
   document:{getElementById:node,querySelector:()=>node('header'),body:{prepend(){}},addEventListener:(key,fn)=>events.set(key,fn)},
-  setScreenRoute:route=>{captured.route=route},writeScreenData:(key,value)=>{captured[key+'Storage']=value},ResizeObserver:class{observe(){}disconnect(){}},addEventListener:(key,fn)=>events.set(key,fn),leaveCopy,rewardFromPoints,
+  setScreenRoute:route=>{captured.route=route},writeScreenData:(key,value)=>{captured[key+'Storage']=value},ResizeObserver:class{observe(){}disconnect(){}},addEventListener:(key,fn)=>events.set(key,fn),leaveCopy,rewardFromPoints,track:(name,properties)=>analytics.push({name,properties}),
   mountRewardNoticeArtwork:()=>()=>{},mountScorePage:(_container,actions)=>{captured.actions=actions;return {render:value=>{captured.result=value;captured.scoreVisible=true},clear:()=>{captured.scoreVisible=false}}},window:{top:{location:{assign:value=>{captured.destination=value}}}},
  };
  vm.runInNewContext(compiled.code,context);
  const registered=[],openers=[],replays=[],boards=[];
  const controller=context.module.exports.connectPostGameRewards((value,opener)=>{registered.push(value);openers.push(opener.id)},()=>replays.push(true),()=>boards.push(true));
- return {controller,node,captured,registered,openers,replays,boards,events,element:context.Element};
+ return {controller,node,captured,registered,openers,replays,boards,events,analytics,element:context.Element};
 }
 test('score controller passes the immutable completed result and game ID into registration',async()=>{
  const fixture=await controllerFixture();fixture.controller.show(3205,'real-game-id');
@@ -99,4 +99,15 @@ test('internal game pages can open over the score without treating it as discard
  assert.equal(prevented,false);
  assert.equal(f.controller.result.points,3205);
  assert.equal(f.controller.dialog.dataset.view,'result');
+});
+
+test('explicit reward exit records one discard while programmatic clearing and low scores do not',async()=>{
+ const f=await controllerFixture();f.controller.show(3205,'completed-game');
+ f.node('rewards-leave-anyway').click();f.node('rewards-leave-anyway').click();
+ assert.deepEqual(f.analytics.map(event=>event.name),['reward_discarded']);
+ assert.equal(f.captured.destination,'/notify');
+ f.controller.clear();f.controller.show(3205);f.controller.discard();
+ assert.equal(f.analytics.length,1,'AuthFlow already records the discard before sending its message');
+ f.controller.clear();f.controller.show(9);f.node('rewards-leave-anyway').click();
+ assert.equal(f.analytics.length,1,'unredeemable scores are not counted as rewards lost');
 });

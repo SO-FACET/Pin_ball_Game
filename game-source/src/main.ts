@@ -1,4 +1,5 @@
 import './style.css';
+import {track,captureError} from '../../shared/analytics.js';
 import '../../assets/site-sound.css';
 import {TableView} from './renderer';
 import {PinballPhysics,DT} from './physics';
@@ -151,6 +152,7 @@ function openPractice(mode:'onboarding'|'replay'){
  // Show both controls even when the current ball is on the close-up rail camera.
  view.follow(physics.pose().position,0,'playing','floor');
  tutorial!.open(mode,result=>{
+  track('tutorial_completed',{outcome:result});
   clearKeys();accumulator=0;lastFrame=0;view.needsRender=true;
   if(mode==='onboarding'&&result!=='cancel'){void beginGame();return}
   physics.setPaused(resume?false:wasPaused);sync();canvas.focus();requestGameFrame();
@@ -160,7 +162,7 @@ function openPractice(mode:'onboarding'|'replay'){
 $('practice-replay').onclick=()=>openPractice('replay');
 const applyInspectionLayout=()=>{if(!inspecting){viewport.style.width='';viewport.style.height=''}else{
  const ref=view.references[view.referenceIndex];const ratio=ref.resolution[0]/ref.resolution[1];const w=Math.min(stage.clientWidth,stage.clientHeight*ratio);viewport.style.width=w+'px';viewport.style.height=w/ratio+'px'}view.resize()};
-let completedRunRecorded=false;
+let completedRunRecorded=false,analyticsRunStarted=0;
 let previousUi:readonly unknown[]=[],previousCharge=-1;
 function syncPlaybackControls(){
  const active=physics.active&&physics.state!=='finished'&&!inspecting;
@@ -189,6 +191,7 @@ function sync(p=physics.pose()){
  sound.setOutputActive(p.state!=='finished');
  siteSound.setActive(!starting&&(!physics.active||p.state==='finished'));
  if(p.state==='finished'&&!completedRunRecorded){completedRunRecorded=true;
+  track('game_finished',{points:p.score,duration_ms:Date.now()-analyticsRunStarted});
   clearKeys();holdCharge=false;showResult();
   void leaderboard.finish().catch(error=>console.warn('Completed game remains pending verification.',error));
  }
@@ -212,7 +215,7 @@ function toggleInspection(){if(!loaded)return;inspecting=!inspecting;clearKeys()
 if(import.meta.env.DEV)$<HTMLSelectElement>('view').onchange=e=>{view.setReference(Number((e.target as HTMLSelectElement).value));applyInspectionLayout();updateOverlay()};
 function updateOverlay(){const opacity=Number($<HTMLInputElement>('overlay').value)/100;const image=$<HTMLImageElement>('reference');image.src='/references/'+view.references[view.referenceIndex].file;image.hidden=!inspecting||!opacity;image.style.opacity=String(opacity);document.querySelector<HTMLElement>('.compare-label')!.hidden=!inspecting||!opacity}
 if(import.meta.env.DEV)$<HTMLInputElement>('overlay').oninput=updateOverlay;
-function setGamePaused(value:boolean){if(!loaded||inspecting||tutorial?.active)return;clearKeys();accumulator=0;if(value)holdCharge=physics.state==='charging';else closeSettings();physics.setPaused(value);sync();if(!value)(rewards.dialog.open?navToggle:canvas).focus()}
+function setGamePaused(value:boolean){if(!loaded||inspecting||tutorial?.active)return;if(physics.paused!==value&&physics.active&&physics.state!=='finished')track(value?'game_paused':'game_resumed');clearKeys();accumulator=0;if(value)holdCharge=physics.state==='charging';else closeSettings();physics.setPaused(value);sync();if(!value)(rewards.dialog.open?navToggle:canvas).focus()}
 function togglePause(){if(!loaded||inspecting||!physics.active||physics.state==='finished')return;setGamePaused(!physics.paused)}
 $('pause').onclick=()=>{togglePause();if(!$('pause-panel').hidden)$('pause-title').focus()};
  $('pause-resume').onclick=()=>setGamePaused(false);
@@ -226,8 +229,8 @@ function updateSoundSettings(){$('volume-value').textContent=Math.round(sound.vo
 $('sound').onclick=()=>{sound.setMuted(!sound.muted);siteSound.setEnabled(!sound.muted);updateSoundSettings()};
 $<HTMLInputElement>('volume').oninput=event=>{sound.setVolume(Number((event.target as HTMLInputElement).value));sound.unlock();updateSoundSettings()};
 async function beginGame(){if(!loaded||starting)return;siteSound.handoff();sound.unlock();starting=true;if(inspecting)toggleInspection();clearKeys();holdCharge=false;physics.setPaused(true);sync();
- try{const seed=await leaderboard.start(),fresh=await PinballPhysics.create(view.manifest,physicsAssets.vertices,physicsAssets.indices,physicsAssets.obstacles);const old=physics;physics=fresh;old.dispose();bindFeedback();completedRunRecorded=false;physics.start(seed);rewards.clear();if(!phone)scorecard.showScore(true);view.resetFeedback();accumulator=0;lastFrame=0;view.setReference(0);view.resize();canvas.focus();sound.setOutputActive(true);sound.play('start');sound.setMusic(true,1.5)}
- catch(error){loaded=false;$('error').hidden=false;$('error-detail').textContent=error instanceof Error?error.message:String(error);$('action').hidden=true}
+ try{const seed=await leaderboard.start(),fresh=await PinballPhysics.create(view.manifest,physicsAssets.vertices,physicsAssets.indices,physicsAssets.obstacles);const old=physics;physics=fresh;old.dispose();bindFeedback();completedRunRecorded=false;physics.start(seed);analyticsRunStarted=Date.now();track('game_started',{online:!!leaderboard.gameId});rewards.clear();if(!phone)scorecard.showScore(true);view.resetFeedback();accumulator=0;lastFrame=0;view.setReference(0);view.resize();canvas.focus();sound.setOutputActive(true);sound.play('start');sound.setMusic(true,1.5)}
+ catch(error){captureError(error,{source:'game_start'});loaded=false;$('error').hidden=false;$('error-detail').textContent=error instanceof Error?error.message:String(error);$('action').hidden=true}
  finally{starting=false;if(loaded)sync();else siteSound.setActive(true)}
 }
 $('start').onclick=()=>{if(!loaded||starting||tutorial?.active)return;if(!tutorial!.seen)openPractice('onboarding');else void beginGame()};

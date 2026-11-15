@@ -1,6 +1,9 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {withRewardsSite,member} from './helpers/rewards-fixture.mjs';
 import {routeDocuments,canonicalHref,setScreenRoute} from '../site-routes.js';
+import {registrationScreenRoute} from '../site-routes.js';
+import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
 
 test('public URLs serve the existing documents, including direct refresh and HEAD',async()=>{
  await withRewardsSite(async({origin})=>{
@@ -54,4 +57,39 @@ test('unknown document URLs render the React 404 page; missing assets and API er
   const api=await fetch(origin+'/api/not-a-route',{headers:{Accept:'text/html'},redirect:'manual'});assert.equal(api.status,404);assert.match(api.headers.get('content-type'),/application\/json/);
   const faq=await fetch(origin+'/how-coins-work',{headers:{Accept:'text/html'},redirect:'manual'});assert.equal(faq.status,200);assert.match(faq.headers.get('content-type'),/text\/html/);
  });
+});
+
+test('auth success reserves coins-saved for actual saved rewards and preserves the parent destination',async()=>{
+ const source=readFileSync(new URL('../collective-source/AuthFlow.jsx',import.meta.url),'utf8');
+ const complete=source.slice(source.indexOf('  async function complete(value)'),source.indexOf('  const requestCreateOtp='));
+ const routing=source.slice(source.indexOf("  useEffect(()=>{\n    if(memberCheck"),source.indexOf('  const exitHeading='));
+ for(const scenario of [
+  {name:'returning sign-in waits for dashboard navigation',kind:'signin',pointsSaved:false,dashboard:true,expected:['/my-coins']},
+  {name:'first-cuts signup without a game',kind:'signup',pointsSaved:false,firstCut:true,expected:['/confirmation']},
+  {name:'ordinary signup without a game',kind:'signup',pointsSaved:false,expected:['/notify']},
+  {name:'standalone sign-in',kind:'signin',pointsSaved:false,expected:['/notify']},
+  {name:'embedded sign-in delegates destination to parent',kind:'signin',pointsSaved:false,embedded:true,expected:[]},
+  {name:'saved game reward',kind:'signup',pointsSaved:true,expected:['/coins-saved']},
+ ]){
+  const routes=[],messages=[],state={step:'claim',saved:null};let finishParent;
+  const context={
+   pendingRef:{current:scenario.pointsSaved?{points:3205}:null},savedRef:{current:false},
+   setSaved:value=>{state.saved=value},setStep:value=>{state.step=value},setResendAt(){},writeScreenData(){},
+   embedded:scenario.embedded===true,post:message=>messages.push(message),
+   completeRef:{current:scenario.dashboard?async()=>{await new Promise(resolve=>{finishParent=resolve});routes.push('/my-coins')}:null},
+   firstCut:scenario.firstCut===true,challenge:{kind:scenario.kind},accountNavigationHref:href=>href,location:{replace:href=>routes.push(href)},
+  };
+  vm.runInNewContext(complete+';this.complete=complete',context);
+  const pending=context.complete({player:{member:true,best_score:3205,display_name:'Player'},pointsSaved:scenario.pointsSaved,savedPoints:scenario.pointsSaved?3205:0});
+  const runEffect=()=>vm.runInNewContext(routing,{
+   ...context,...state,memberCheck:'guest',tab:scenario.kind==='signin'?'registered':'create',exit:null,
+   claimFirst:false,fromAccount:{current:false},registrationScreenRoute,
+   useEffect:effect=>effect(),setScreenRoute:href=>routes.push(href),window:{dispatchEvent(){}},Event,
+  });
+  runEffect();
+  if(scenario.dashboard){assert.deepEqual(routes,[],'pending parent completion cannot expose a false coins-saved screen');finishParent();}
+  await pending;
+  assert.deepEqual(routes,scenario.expected,scenario.name);
+  if(scenario.embedded)assert.equal(messages[0]?.type,'contest-registration:complete');
+ }
 });

@@ -12,6 +12,7 @@ import {brandText} from '../shared/brand-react.jsx';
 import {accountNavigationHref} from '../shared/account-session.js';
 import ShareScoreDialog from '../shared/ShareScoreDialog.jsx';
 import {readScreenData,writeScreenData,setScreenRoute,registrationScreenRoute} from '../site-routes.js';
+import {track} from '../shared/analytics.js';
 
 const embedded=window.parent!==window&&window.name!=='sofacet-game-info';
 const post=data=>{if(embedded)window.parent.postMessage(data,location.origin);};
@@ -27,9 +28,9 @@ export function SavedConfirmation({saved,status='',onReplay}) {
     </>:<p>Play a round to earn SO/ COINS for your SO/ FACET jewellery.</p>}
     {status&&<p role="status">{status}</p>}
     <div className="auth-flow-actions">
-      {saved?.pointsSaved&&<button type="button" aria-haspopup="dialog" onClick={()=>shareDialog.current.showModal()}>SHARE POINTS</button>}
-      <button type="button" onClick={onReplay??(()=>window.top.location.assign('/game'))}>PLAY AGAIN</button>
-      <button type="button" onClick={()=>window.top.location.assign('/about')}>ABOUT&nbsp;SO/ FACET</button>
+      {saved?.pointsSaved&&<button type="button" data-analytics-control="open_score_share" aria-haspopup="dialog" onClick={()=>shareDialog.current.showModal()}>SHARE POINTS</button>}
+      <button type="button" data-analytics-control={saved?.pointsSaved?"saved_replay":"saved_play"} onClick={onReplay??(()=>window.top.location.assign('/game'))}>PLAY AGAIN</button>
+      <button type="button" data-analytics-control="saved_about" onClick={()=>window.top.location.assign('/about')}>ABOUT&nbsp;SO/ FACET</button>
     </div>
     {saved?.pointsSaved&&<ShareScoreDialog score={saved.savedPoints} dialogRef={shareDialog} sharePoints/>}
   </section>);
@@ -53,13 +54,13 @@ export default function AuthFlow({pageTitle,pointsContext=false,initialTab='crea
     return()=>abort.abort();
   },[]);
   useEffect(()=>{
-    if(memberCheck!=='guest')return;
+    if(memberCheck!=='guest'||step==='success'&&saved?.pointsSaved!==true)return;
     const route=registrationScreenRoute({step,tab,challenge:claimFirst&&step==='claim'?null:challenge,exit,fromAccount:fromAccount.current});
     if(route){
       setScreenRoute(route);
       window.dispatchEvent(new Event('sofacet:registration-route'));
     }
-  },[memberCheck,step,tab,challenge,exit,claimFirst]);
+  },[memberCheck,step,tab,challenge,exit,claimFirst,saved]);
   const exitHeading=useRef(null);
   useEffect(()=>{if(exit)exitHeading.current?.focus({preventScroll:true});},[exit]);
   completeRef.current=onComplete;backRef.current=onBack;
@@ -200,8 +201,9 @@ export default function AuthFlow({pageTitle,pointsContext=false,initialTab='crea
       <h1 ref={exitHeading} tabIndex={-1}>{copy.title}</h1>
       <p>{copy.support}</p>
       <div className="auth-flow-actions reward-notice-actions">
-        <button onClick={()=>setExit(null)}>Save my SO/ COINS</button>
-        <button onClick={()=>{
+        <button data-analytics-control="keep_reward" onClick={()=>setExit(null)}>Save my SO/ COINS</button>
+        <button data-analytics-control="discard_reward" onClick={()=>{
+          if(unsaved())track('reward_discarded');
           pendingRef.current=null;
           savedRef.current=true;
           writeScreenData('reward',null);
@@ -212,15 +214,15 @@ export default function AuthFlow({pageTitle,pointsContext=false,initialTab='crea
     </section>);
   }
   if(memberCheck==='checking'||memberCheck==='member')return null;
-  if(memberCheck==='error')return brandText(<section className="auth-flow-notice" role="alert"><p>We couldn't load your SO/ COINS. Please try again.</p><button type="button" onClick={()=>location.reload()}>Try again</button></section>);
+  if(memberCheck==='error')return brandText(<section className="auth-flow-notice" role="alert"><p>We couldn't load your SO/ COINS. Please try again.</p><button type="button" data-analytics-control="account_retry" onClick={()=>location.reload()}>Try again</button></section>);
   const inlineSaved=step==='success'&&saved?.pointsSaved;
   const confirmation=step==='success'?<SavedConfirmation saved={saved} status={status} onReplay={replay}/>:null;
   if(confirmation&&!inlineSaved)return confirmation;
   const close=embedded&&!inlineSaved?()=>leave('/'):undefined;
   return <>
-    {close&&step!=='claim'&&<button type="button" className="auth-flow-close" aria-label="Close account form" onClick={close}>×</button>}
-    {embedded&&claimFirst&&step==='identity'&&<button type="button" className="auth-flow-back" onClick={goBack}>← Back</button>}
-    {!embedded&&onBack&&step==='identity'&&<button type="button" className="auth-flow-back" onClick={()=>leave('/')}>← Back</button>}
+    {close&&step!=='claim'&&<button type="button" className="auth-flow-close" data-analytics-control="account_close" aria-label="Close account form" onClick={close}>×</button>}
+    {embedded&&claimFirst&&step==='identity'&&<button type="button" className="auth-flow-back" data-analytics-control="account_back" onClick={goBack}>← Back</button>}
+    {!embedded&&onBack&&step==='identity'&&<button type="button" className="auth-flow-back" data-analytics-control="account_back" onClick={()=>leave('/')}>← Back</button>}
     {step==='claim'||inlineSaved?<ClaimPage confirmation={inlineSaved?confirmation:null} pageTitle={pageTitle} result={inlineSaved?{points:saved.score}:pending} challengeId={challenge?.id} name={details?.name||defaults.name} phone={phoneParts(challenge?.phoneNumber||'').nationalNumber||defaults.phone||''} dialCode={defaults.country||'+91'} challengePhone={challenge?.phoneNumber} twoStep={claimFirst} email={defaults.email} onStart={startClaim} termsUrl={config?.policies?.terms} privacyUrl={config?.policies?.privacy} onClaim={confirm} onResend={resend} onBack={goBack} onClose={close} onSignIn={()=>{setStep('identity');switchTab('registered');}} status={status} resendSeconds={seconds} working={busy}/>:<AccountPage pageTitle={step==='identity'&&tab==='create'?joinPageTitle:pageTitle} pointsContext={pointsContext} updatesRequired={!pending} initialTab={initialTab} activeTab={tab} onTabChange={switchTab} defaults={defaults} onLogin={signIn} onRequestOtp={requestSignIn} onRequestCreateOtp={requestCreateOtp} onCreateAccount={createAccount} status={status} codeRequested={challenge?.kind==='signin'} createCodeRequested={challenge?.kind==='signup'} working={busy} resendSeconds={seconds} termsUrl={config?.policies?.terms} privacyUrl={config?.policies?.privacy}/>}
   </>;
 }

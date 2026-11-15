@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node --env-file-if-exists=.env server.mjs",
-    "build": "node scripts/materialize-video.mjs && node scripts/build-frame-index.mjs && tsc --noEmit --project game-source/tsconfig.json && node scripts/build-cookie-popup.mjs && node scripts/build-loader.mjs && node scripts/build-game.mjs && node scripts/build-membership.mjs && node scripts/build-faq.mjs && node scripts/build-about.mjs && node scripts/build-account.mjs && node scripts/build-launch.mjs && node scripts/build-notify.mjs && node scripts/build-entrance.mjs && node scripts/build-not-found.mjs",
+    "build": "node scripts/materialize-video.mjs && node scripts/build-frame-index.mjs && tsc --noEmit --project game-source/tsconfig.json && node scripts/build-analytics.mjs && node scripts/build-cookie-popup.mjs && node scripts/build-loader.mjs && node scripts/build-game.mjs && node scripts/build-membership.mjs && node scripts/build-faq.mjs && node scripts/build-about.mjs && node scripts/build-account.mjs && node scripts/build-launch.mjs && node scripts/build-notify.mjs && node scripts/build-entrance.mjs && node scripts/build-not-found.mjs",
     "build:404": "node scripts/build-not-found.mjs",
     "build:membership": "node scripts/build-membership.mjs",
     "test:membership": "node --test tests/membership.test.mjs",
@@ -33,11 +33,14 @@
     "prepare:flowers": "node scripts/generate-flower-variants.mjs",
     "check:artwork": "node scripts/browser-artwork-responsive.mjs",
     "build:cookie": "node scripts/build-cookie-popup.mjs",
-    "build:loader": "node scripts/build-loader.mjs"
+    "build:loader": "node scripts/build-loader.mjs",
+    "build:analytics": "node scripts/build-analytics.mjs",
+    "test:analytics": "node --test tests/analytics*.test.mjs"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "0.21.0",
     "libphonenumber-js": "1.13.15",
+    "posthog-js": "1.447.11",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "three": "0.186.1"

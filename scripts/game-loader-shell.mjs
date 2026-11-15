@@ -16,6 +16,7 @@ const pageReady=readFileSync(new URL('../assets/page-ready.js',import.meta.url),
 const cookieScript=readFileSync(new URL('../assets/cookie-preferences.js',import.meta.url),'utf8');
 const cookieCss=readFileSync(new URL('../assets/cookie-preferences.css',import.meta.url),'utf8');
 const cookieVersion=createHash('sha256').update(readFileSync(new URL('../assets/cookie-popup.js',import.meta.url))).digest('hex').slice(0,12);
+const analyticsVersion=createHash('sha256').update(readFileSync(new URL('../assets/analytics.js',import.meta.url))).digest('hex').slice(0,12);
 const typographyStyles=['style.css','assets/legal-pages.css','assets/launching-soon.css','assets/first-cuts-confirmation.css'].map(path=>[path,createHash('sha256').update(readFileSync(new URL('../'+path,import.meta.url))).digest('hex').slice(0,12)]);
 export function withGameLoader(html,{game=false,entry='',notifyFooter=false,siteSound=true}={}){
  html=html.replace(/<link\b[^>]*data-brand-typography[^>]*>/g,'');
@@ -23,6 +24,7 @@ export function withGameLoader(html,{game=false,entry='',notifyFooter=false,site
  html=withSiteMetadata(html).replace(/<!-- game-loader-head -->[\s\S]*?<!-- \/game-loader-head -->/g,'').replace(/<!-- game-loader-body -->[\s\S]*?<!-- \/game-loader-body -->/g,'');
  html=html.replace(/<!-- page-ready -->[\s\S]*?<!-- \/page-ready -->/g,'').replace(/<head\b[^>]*>(?:\s*<meta\b[^>]*charset[^>]*>)?/i,`$&<!-- page-ready --><style id="page-loader-css">html{color-scheme:dark;background-color:#08040d}html[data-loaded="false"] body{visibility:hidden!important;opacity:0!important}html[data-loaded="false"]::before{content:"";position:fixed;top:calc(50% - 22px);left:calc(50% - 22px);width:44px;height:44px;border:2px solid #503660;border-top-color:#d9ed37;border-radius:50%;animation:page-loader-spin .8s linear infinite;z-index:2147483647}html[data-loaded="false"]::after{content:"LOADING";position:fixed;top:calc(50% + 35px);left:50%;transform:translateX(-50%);color:#e4e3de;font:600 12px/1.4 'Brilliant Cut Pro',sans-serif;letter-spacing:.18em;z-index:2147483647}@keyframes page-loader-spin{to{transform:rotate(1turn)}}@media(prefers-reduced-motion:reduce){html[data-loaded="false"]::before{animation:none}}</style><script id="page-ready">${pageReady}</script><!-- /page-ready -->`);
  html=html.replace(/<!-- cookie-preferences -->[\s\S]*?<!-- \/cookie-preferences -->/g,'').replace('</head>',`<!-- cookie-preferences --><style>${cookieCss}</style><script id="cookie-preferences">${cookieScript}</script><script src="/assets/cookie-popup.js?v=${cookieVersion}" defer></script><!-- /cookie-preferences --></head>`);
+ html=html.replace(/<!-- analytics -->[\s\S]*?<!-- \/analytics -->/g,'').replace('</head>',`<!-- analytics --><script src="/assets/analytics.js?v=${analyticsVersion}" defer></script><!-- /analytics --></head>`);
  html=html.replace(/((?:href=["'])(?:\.\/|\.\.\/|\/)?assets\/navigation\.css)(?:\?[^"']*)?/g,'$1?v='+navigationVersion);
  html=html.replace(/((?:src=["'])(?:\.\/|\.\.\/|\/)?navigation\.js)(?:\?[^"']*)?/g,'$1?v='+navigationScriptVersion);
  for(const [path,hash] of typographyStyles){

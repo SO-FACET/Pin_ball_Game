@@ -7,14 +7,19 @@ import type {CompletedGameResult} from './post-game-rewards';
 import {setScreenRoute} from '../../site-routes.js';
 import {mountScoreMesh} from './score-mesh.js';
 import {rewardFromPoints} from '../../shared/reward-value.js';
+import {track,apiOutcome,apiFailure} from '../../shared/analytics.js';
 export type Entry={rank:number|null;display_name:string;points:number;is_you:boolean};
 type Board={entries:Entry[];me:Entry|null;mode:'game'|'rewards'};
 export type Player={display_name:string;member:boolean;best_score:number|null};
 
 async function request<T>(url:string,body?:unknown,timeout=30000):Promise<T>{
+ const started=Date.now();
+ try{
  const response=await fetch(url,{method:body===undefined?'GET':'POST',headers:body===undefined?{}:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(timeout)});
  const data=await response.json().catch(()=>({message:'The leaderboard service is unavailable.'}));
- if(!response.ok)throw Object.assign(new Error(data.message||'Please try again in a moment.'),{code:data.code});return data as T;
+ if(!response.ok)throw Object.assign(new Error(data.message||'Please try again in a moment.'),{code:data.code,status:response.status});
+ apiOutcome(url,response.status,data,Date.now()-started);return data as T;
+ }catch(error){apiFailure(url,error,Date.now()-started);throw error}
 }
 
 // Keep the current player's real rank; never renumber their pinned row as tenth.
@@ -72,7 +77,7 @@ export function connectLeaderboard(onClose:()=>void,onReplay:()=>void,onVerified
   if(target.error||!target.id)throw new Error(target.error||'This game could not connect for verification. Please play again with a connection.');
   target.submission??=request<{score:number;best_score:number}>('/api/games/'+target.id+'/finish',{version:REPLAY_VERSION,inputs:target.inputs},75000).then(result=>{
    if(!Number.isSafeInteger(result.score)||result.score<0||!Number.isSafeInteger(result.best_score)||result.best_score<result.score)throw Error('Your score could not be verified. Please try again.');
-   target.submitted=true;target.score=result.score;onBest(result.best_score);if(target===run){document.getElementById('leaderboard-save')!.hidden=result.score<10;if(player)player={...player,best_score:result.best_score};summary.textContent='This run: '+formatPoints(result.score);window.dispatchEvent(new Event('sofacet:leaderboard-updated'));onVerified(result.score,result.best_score)}
+   target.submitted=true;target.score=result.score;track('score_verified',{points:result.score,best_points:result.best_score});onBest(result.best_score);if(target===run){document.getElementById('leaderboard-save')!.hidden=result.score<10;if(player)player={...player,best_score:result.best_score};summary.textContent='This run: '+formatPoints(result.score);window.dispatchEvent(new Event('sofacet:leaderboard-updated'));onVerified(result.score,result.best_score)}
   }).catch(error=>{target.submission=undefined;throw error});
   await target.submission;
  }

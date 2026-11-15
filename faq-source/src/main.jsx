@@ -48,7 +48,7 @@ function Footer({mobile, onTopic}) {
       <div className="footer-menu">
         <FooterColumn title="Customer" mobile={mobile}>
           <li><a href="/contact" onClick={event => topicLink(event,'contact')}>Contact us</a></li>
-          <li><a href="mailto:hello@sofacet.com">Email us</a></li>
+          <li><a href="mailto:hello@sofacet.com" data-analytics-control="contact_support">Email us</a></li>
           <li><a href="/how-coins-work" onClick={event => topicLink(event,null)}>Help &amp; FAQs</a></li>
         </FooterColumn>
         <FooterColumn title="Our company" mobile={mobile}>
@@ -60,7 +60,7 @@ function Footer({mobile, onTopic}) {
           <li><a href="/terms">Terms</a></li>
           <li><a href="/privacy">Privacy</a></li>
           <li><a href="/privacy#privacy-9-cookies-pixels-and-similar-technologies" data-cookie-settings>Cookie settings</a></li>
-          <li><a href="mailto:privacy@sofacet.com">Data requests</a></li>
+          <li><a href="mailto:privacy@sofacet.com" data-analytics-control="contact_privacy">Data requests</a></li>
         </FooterColumn>
         <section className="footer-social">
           <h2>Follow us</h2>
@@ -75,7 +75,7 @@ function Footer({mobile, onTopic}) {
         </section>
       </div>
       <div className="footer-bottom">
-        <div className="footer-contact"><span>Still have a question?</span><a href="mailto:hello@sofacet.com">hello@sofacet.com</a></div>
+        <div className="footer-contact"><span>Still have a question?</span><a href="mailto:hello@sofacet.com" data-analytics-control="contact_support">hello@sofacet.com</a></div>
         <a className="pinball" href="/game" target="_top">PLAY PINBALL</a>
       </div>
     </div>
@@ -176,7 +176,7 @@ function App() {
             {topic.questions.map((question,index) => {
               const id = topic.id+'-'+index;
               return <details key={id} open={printing||openQuestions.has(id)} onToggle={event=>toggleQuestion(id,event.currentTarget.open)}>
-                <summary><span><BrandText>{question.question}</BrandText></span></summary>
+                <summary data-analytics-control={"faq_question_"+id}><span><BrandText>{question.question}</BrandText></span></summary>
                 <p>{question.answer.map((part,i) => typeof part==='string'
                   ? <BrandText key={i}>{part}</BrandText>
                   : <a key={i} href={part.href}>{part.text}</a>)}</p>
@@ -184,8 +184,8 @@ function App() {
             })}
           </> : <>
             <h2>Still have a question?</h2>
-            <p>Email us at <a href="mailto:hello@sofacet.com">hello@sofacet.com</a>.</p>
-            <p>For updates or data requests, email <a href="mailto:privacy@sofacet.com">privacy@sofacet.com</a>.</p>
+            <p>Email us at <a href="mailto:hello@sofacet.com" data-analytics-control="contact_support">hello@sofacet.com</a>.</p>
+            <p>For updates or data requests, email <a href="mailto:privacy@sofacet.com" data-analytics-control="contact_privacy">privacy@sofacet.com</a>.</p>
           </>}
         </section>)}
       </div>

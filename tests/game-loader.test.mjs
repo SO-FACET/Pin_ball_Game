@@ -5,7 +5,7 @@ import vm from 'node:vm';
 import {withGameLoader} from '../scripts/game-loader-shell.mjs';
 const source=readFileSync(new URL('../loader-source/controller.js',import.meta.url),'utf8').replace('export function','function');
 function loader({reduced=false,embedded=false,parentOwnsCards=false,managed=false,images=[],cssReady=true,visited=false,chess=false,storageBlocked=false}={}){
- const timers=new Map(),renders=[],reports=[];let id=0;
+ const timers=new Map(),renders=[],reports=[],analytics=[];let id=0;
  const node=()=>({hidden:false,dataset:{},style:{setProperty(){}},firstChild:{textContent:''},setAttribute(name,value){this[name]=value}});
  const root=node(),stage=node(),error=node(),status=node(),cards=node(),progress=node(),retry=node(),rootEvents=new EventTarget();
  const fill=node(),statement=node(),childWindow={},parentMessages=[];
@@ -16,12 +16,13 @@ function loader({reduced=false,embedded=false,parentOwnsCards=false,managed=fals
  root.addEventListener=rootEvents.addEventListener.bind(rootEvents);root.dispatchEvent=rootEvents.dispatchEvent.bind(rootEvents);root.hasAttribute=name=>managed&&name==='data-managed';stage.inert=true;stage.dataset.ready='false';
  root.querySelector=selector=>({'#game-loader-cards-root':cards,'.loading-copy':status,'.game-loading-progress':progress,'.game-loading-error':error,'[data-game-retry]':retry}[selector]);
  const document=new EventTarget(),window=new EventTarget();document.body={hasAttribute:name=>!managed&&name==='data-game-loading',removeAttribute(){}};document.hidden=false;
+ window.sofacetAnalytics={track:(name,properties)=>analytics.push({name,properties}),captureError(){}};
  document.getElementById=id=>({'game-loading-screen':root,stage,'game-page':{contentWindow:childWindow},'game-loader-controller':{dataset:{gameEntry:''}},'game-loader-critical':{sheet:{}}}[id]);document.querySelectorAll=selector=>selector==='#stage'?[stage]:[];
  const url=new URL('http://localhost/play.html');if(parentOwnsCards)url.searchParams.set('loader','parent');if(chess)url.searchParams.set('from','chess');
  const context={CustomEvent,window,document,sessionStorage,parent:embedded?{postMessage:data=>parentMessages.push(data)}:window,location:{origin:'http://localhost',href:url.href},URL,matchMedia:()=>({matches:reduced}),AbortController,ResizeObserver:class{observe(){}disconnect(){}},visualViewport:null,addEventListener:window.addEventListener.bind(window),requestAnimationFrame:()=>++id,setTimeout:(callback,duration)=>{const key=++id;timers.set(key,{callback,duration});return key},clearTimeout:key=>timers.delete(key),console:{error(){}},fetch:async(url,options)=>reports.push({url,...options}),renderCards:(element,active,run,onComplete)=>renders.push({element,active,run,onComplete})};
  context.getComputedStyle=()=>({getPropertyValue:()=>cssReady?'1':''});
  vm.runInNewContext(source+';installGameLoader(renderCards)',context);
- return{api:window.sofacetGameLoader,root,stage,error,status,progress,fill,statement,childWindow,parentMessages,storage,renders,reports,document,window,timers,finishCards(){renders.at(-1).onComplete()},flushFade(){for(const [key,timer]of timers)if(timer.duration<=400){timers.delete(key);timer.callback()}}};
+ return{api:window.sofacetGameLoader,root,stage,error,status,progress,fill,statement,childWindow,parentMessages,storage,renders,reports,analytics,document,window,timers,finishCards(){renders.at(-1).onComplete()},flushFade(){for(const [key,timer]of timers)if(timer.duration<=400){timers.delete(key);timer.callback()}}};
 }
 
 test('determinate progress never regresses and reaches 100 only when the game is ready',()=>{
@@ -84,6 +85,17 @@ test('secondary pages use progress on return while a parent-owned game has no se
  assert.equal(page.root.dataset.loader,'progress');assert.equal(page.renders.length,0);
  const child=loader({embedded:true,parentOwnsCards:true,visited:true});
  assert.equal(child.progress.hidden,true);assert.equal(child.renders.length,0);child.api.ready();child.flushFade();assert.equal(child.root.hidden,true);
+});
+
+test('analytics records one readiness handoff for standalone or outer cards and none for the parent-owned child',async()=>{
+ const standalone=loader({visited:true});standalone.api.ready();standalone.api.ready();
+ assert.equal(standalone.analytics.filter(event=>event.name==='game_ready').length,1);
+ const child=loader({embedded:true,parentOwnsCards:true,visited:true});child.api.ready();child.api.ready();
+ assert.equal(child.analytics.filter(event=>event.name==='game_ready').length,0);
+ const outer=loader({managed:true,visited:true});outer.api.show({story:true});await Promise.resolve();
+ outer.api.ready();assert.equal(outer.analytics.filter(event=>event.name==='game_ready').length,0,'table readiness alone does not bypass the card handoff');
+ outer.finishCards();outer.api.ready();outer.finishCards();
+ assert.equal(outer.analytics.filter(event=>event.name==='game_ready').length,1);
 });
 
 test('progress loading keeps retry errors and blocked storage cannot break the game',async()=>{
