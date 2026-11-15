@@ -1,4 +1,5 @@
-import { mountReveal } from './reveal.js';
+import '/sounds/site-audio.js?v=frames-a9c04ad83c00';
+import { mountReveal } from './reveal.js?v=frames-c55b3eb86806';
 
 const overlay = document.querySelector('#site-loader');
 const stage = overlay?.querySelector('#loading-stage');

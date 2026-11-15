@@ -1,4 +1,4 @@
-@import url('./assets/navigation.css?v=6b6273cacf87');
+@import url('./assets/navigation.css?v=31c7a88d4882');
 :root{font-family:'Josefin Sans',sans-serif;color:#f6f2ff;background:#0b1022;color-scheme:dark;font-synthesis:none;--travel:15912px}
 *{box-sizing:border-box}
 html{overscroll-behavior:none;scrollbar-width:none}
@@ -100,6 +100,7 @@ body[data-loading] #story-copy{visibility:hidden}
 a.wordmark.site-brand{pointer-events:auto}
 .site-navigation{gap:16px}
 .site-sound{position:fixed;left:calc(24px + env(safe-area-inset-left,0px));bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:4;display:inline-flex;align-items:center;justify-content:center;gap:12px;min-height:44px;padding:0 8px;border:0;border-radius:0;background:transparent;color:#fff;font:400 13px/1.2 'Josefin Sans',sans-serif;letter-spacing:.02em;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.site-sound:hover{background:transparent}
 .sound-text{display:grid;overflow:hidden;padding:2px 0}
 .sound-state{grid-area:1/1;justify-self:end;white-space:nowrap}
 .sound-char{display:inline-block;white-space:pre;transform:translateY(110%);opacity:0}
@@ -172,19 +173,7 @@ noscript{position:fixed;top:45%;left:10%;right:10%;text-align:center}
 .story-finale p{width:calc(100% + 5.5vw);white-space:normal;text-wrap:pretty;line-height:1.5;font-size:clamp(14px,1.1vw,20px)}
 :root .site-nav .play-now{font-size:13px}
 
-:root body .landing-actions .play-now{background:#8f799f;color:#fff;clip-path:polygon(10px 0,calc(100% - 10px) 0,100% 10px,100% 100%,0 100%,0 10px)}
-:root body .landing-actions .landing-about{color:#d9ed37}
-:root body .landing-actions .play-now::before{background:#110b19;clip-path:polygon(9px 0,calc(100% - 9px) 0,100% 9px,100% 100%,0 100%,0 9px)}
-:root body .landing-actions .play-now:is(:hover,:focus-visible){background:#c1a1d9;color:#fff}
-:root body .landing-actions .landing-about:is(:hover,:focus-visible){color:#d9ed37}
-:root body .landing-actions .play-now:is(:hover,:focus-visible)::before{background:#25152f}
 :root body .landing-actions .play-now:focus-visible{outline:2px solid #d9ed37;outline-offset:2px}
-@media(max-width:700px){
- :root .site-nav.landing-actions{top:calc(7px + env(safe-area-inset-top,0px));right:calc(12px + env(safe-area-inset-right,0px));left:calc(20px + env(safe-area-inset-left,0px));width:auto;height:94px;align-items:flex-end;justify-content:flex-start;gap:8px}
- :root .landing-actions .menu-toggle{position:absolute;top:0;right:0}
- :root body .landing-actions .play-now{flex:1 1 0;width:0;height:34px;min-height:34px;padding:0 6px;font-size:11px;letter-spacing:.02em;transform:none}
-}
-
 .social-links{position:fixed;right:calc(24px + env(safe-area-inset-right,0px));bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:4;color:#fff}
 .social-profiles{display:flex;align-items:center;gap:24px}
 .social-links a{display:inline-flex;align-items:center;gap:8px;min-height:44px;color:#fff;text-decoration:none;font:400 18px/1.2 'Josefin Sans';font-synthesis:none;white-space:nowrap}

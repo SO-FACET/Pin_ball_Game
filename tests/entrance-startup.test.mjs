@@ -40,16 +40,16 @@ test('unknown download length stays indeterminate and real network failures reje
  await assert.rejects(downloadModel('data:text/plain,abc',{signal:controller.signal}),{name:'AbortError'});
 });
 
-test('buffering intro audio cannot pin the six-second logo animation',()=>{
- const elements=new Map(),audio={paused:false,ended:false,currentTime:1,play:()=>Promise.resolve(),pause(){this.paused=true}};
+test('the six-second logo reveal completes without a separate soundtrack',()=>{
+ const elements=new Map();
  const target=()=>({dataset:{},setAttribute(){},addEventListener(){},removeEventListener(){}});
- const stage={...target(),querySelector(selector){if(selector==='#introAudio')return audio;if(!elements.has(selector))elements.set(selector,target());return elements.get(selector)}};
+ const stage={...target(),querySelector(selector){if(!elements.has(selector))elements.set(selector,target());return elements.get(selector)}};
  let callback,completed=0;
  const context={localStorage:{getItem:()=>null},matchMedia:()=>({...target(),matches:false}),document:target(),window:target(),requestAnimationFrame:fn=>{callback=fn;return 1},cancelAnimationFrame(){}};
  vm.runInNewContext(read('assets/loading/reveal.js').replace('export function','function')+';this.mountReveal=mountReveal;',context);
  const cleanup=context.mountReveal(stage,()=>completed++);
  for(const now of [100,1100,3100,6100])callback(now);
- assert.equal(completed,1);assert.equal(stage.dataset.phase,'complete');assert.equal(audio.paused,true);cleanup();
+ assert.equal(completed,1);assert.equal(stage.dataset.phase,'complete');cleanup();
 });
 
 test('the logo overlay requires real readiness and its existing reveal, with no message-duration gate',async()=>{
@@ -58,7 +58,7 @@ test('the logo overlay requires real readiness and its existing reveal, with no 
   const ready=new Promise(resolve=>{release=resolve});
   const overlay={querySelector:()=>({}),setAttribute(){},removeAttribute(){},classList:{add(){}},contains:()=>false,remove(){removed=true}};
   const context={Promise,document:{querySelector:selector=>selector==='#site-loader'?overlay:{inert:true,removeAttribute(){}},documentElement:{hasAttribute:()=>false},body:{removeAttribute(){}}},mountReveal:(_stage,done)=>{reveal=done;return()=>{cleaned=true}},matchMedia:()=>({matches:true})};
-  vm.runInNewContext(read('assets/loading/intro.js').replace(/^import .*;\r?\n/,'').replace('export function','function')+';this.finishLoading=finishLoading;',context);
+  vm.runInNewContext(read('assets/loading/intro.js').replace(/^import .*;\r?\n/gm,'').replace('export function','function')+';this.finishLoading=finishLoading;',context);
   const done=context.finishLoading({ready});
   if(readyFirst)release();else reveal();
   await new Promise(resolve=>setImmediate(resolve));assert.equal(removed,false);

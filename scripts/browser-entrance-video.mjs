@@ -43,9 +43,9 @@ try{
       await page.locator('#site-loader[data-preparing][data-waiting]').waitFor();
       assert.equal(await page.locator('#site-loader #scene').isVisible(),true,'Skipped intro must retain its static logo during video preparation');
       loadingLogo=await page.evaluate(()=>({visible:getComputedStyle(document.querySelector('#site-loader #scene')).visibility,
-        phase:document.querySelector('#loading-stage').dataset.phase??null,audioPaused:document.querySelector('#introAudio').paused}));
+        phase:document.querySelector('#loading-stage').dataset.phase??null}));
       assert.equal(loadingLogo.phase,null,'Do not replay the intro on return');
-      assert.equal(loadingLogo.audioPaused,true,'Static loading must not start intro audio');
+      assert.equal(await page.locator('#introAudio').count(),0,'The loader must not use a separate soundtrack');
       await page.screenshot({path:new URL(`${engine}-${name}-loading-logo.png`,output).pathname});
     }finally{releaseMedia();}
     await page.waitForFunction(()=>window.entrancePreview?.ready,null,{timeout:180000});

@@ -1,14 +1,15 @@
 export const CHESS_HIT_FRAME = 2164;
-const MUSIC_START = 75;
-const musicPositionKey = 'sofacet-site-music-v2';
+const MUSIC_START = 0;
+const musicPositionKey = 'sofacet-site-music-v3';
+const gamePage = !!document.querySelector('#score-page-root');
 
 export function createSiteSound() {
   let context, master, musicGain, rollingGain, rolling, hit;
   let loading, stopTimer, duckTimer, pauseTimer, requested = false, playGeneration = 0;
-  let enabled = true, unlocked = false, playing = false, started = false, active = !document.body?.hasAttribute('data-loading'), moving = false, lastFrame = 240, lastMove = 0;
+  let enabled = true, unlocked = false, playing = false, started = false, active = !document.body?.hasAttribute('data-loading') || !!document.querySelector('#site-loader'), moving = false, lastFrame = 240, lastMove = 0;
   const music = new Audio();
   music.preload = 'none';
-  music.src = '/sounds/SO-FACET-landing-audio.mp3';
+  music.src = '/sounds/SO-FACET-landing-audio-from-1m04s.mp3';
   let musicPosition = MUSIC_START;
   try {
     enabled = localStorage.getItem('sofacet-site-sound') !== 'off';
@@ -115,8 +116,9 @@ export function createSiteSound() {
   return {
     paint,
     unlock,
-    toggle() {
-      enabled = !(enabled && unlocked && playing && active);
+    toggle() { this.setEnabled(!(enabled && unlocked && playing && active)); },
+    setEnabled(value) {
+      enabled = value;
       if (!enabled) started = false;
       try { localStorage.setItem('sofacet-site-sound', enabled ? 'on' : 'off'); } catch {}
       if (enabled) unlock(); else update();
@@ -167,8 +169,11 @@ button.setAttribute('aria-label', 'Sound off'); button.setAttribute('aria-presse
 button.innerHTML = '<span class="sound-text" aria-hidden="true">' + ['OFF', 'ON'].map(state =>
   `<span class="sound-state" data-state="${state === 'ON'}">${Array.from('Sound ' + state.toLowerCase()).map(letter => `<span class="sound-char">${letter}</span>`).join('')}</span>`
 ).join('') + '</span><svg class="sound-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m11 5-6 4H2v6h3l6 4Z"/><path class="sound-on-icon" d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/><path class="sound-off-icon" d="m16 9 5 6m0-6-5 6"/></svg><span class="sound-bars" aria-hidden="true"><span></span><span></span><span></span></span>';
-if (document.body.classList.contains('policy-page') || document.querySelector('#faq-root')) document.body.append(button);
-else (document.querySelector('.site-navigation') || document.querySelector('.info-page header') || document.body).prepend(button);
+if (gamePage) document.querySelector('#post-game-rewards').append(button);
+else {
+  if (document.body.classList.contains('policy-page') || document.querySelector('#faq-root')) document.body.append(button);
+  else (document.querySelector('.site-navigation') || document.querySelector('.info-page header') || document.body).prepend(button);
+}
 button.addEventListener('click', () => siteSound.toggle());
 matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', event => {
   if (event.matches) button.getAnimations({ subtree: true }).forEach(animation => animation.cancel());
@@ -179,7 +184,7 @@ for (const type of ['pointerdown', 'keydown']) document.addEventListener(type, e
 }, { passive: true });
 document.addEventListener('visibilitychange', () => siteSound.visibility());
 window.addEventListener('pagehide', () => { siteSound.save(); siteSound.setActive(false); });
-window.addEventListener('pageshow', () => siteSound.setActive(!document.body.hasAttribute('data-loading') && document.body.dataset.game !== 'visible'));
+window.addEventListener('pageshow', () => { if (!gamePage) siteSound.setActive((!document.body.hasAttribute('data-loading') || !!document.querySelector('#site-loader')) && document.body.dataset.game !== 'visible'); });
 // Keep the displayed choice stable while a new page waits for browser audio activation.
 siteSound.paint();
 siteSound.unlock();

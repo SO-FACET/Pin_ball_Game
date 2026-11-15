@@ -1,33 +1,11 @@
 export function mountReveal(stage, onComplete = () => {}) {
   const $ = id => stage.querySelector(`#${id}`);
-  const audio = $('introAudio');
-  audio.volume = .25;
-  try { audio.muted = localStorage.getItem('sofacet-site-sound') === 'off'; } catch {}
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const elements = Object.fromEntries(['revealEdge','scanArea','texture','atmosphere','sideReflections','groundReflection','logoBloom','scanner','beamA','beamB','reflectedBeamA','reflectedBeamB'].map(id => [id, $(id)]));
   const clamp = n => Math.max(0, Math.min(1, n));
   const smooth = (a, b, t) => { const x = clamp((t - a) / (b - a)); return x * x * (3 - 2 * x); };
   const opacity = (id, value) => elements[id].setAttribute('opacity', value.toFixed(4));
   let frame = 0, start = 0, elapsed = 0, completed = false;
-  let soundGeneration = 0, resumeSound = false;
-
-  function stopSound() {
-    soundGeneration++;
-    audio.pause();
-    if (stage.dataset.sound !== 'blocked') stage.dataset.sound = 'paused';
-  }
-  function playSound(restart = false) {
-    const generation = ++soundGeneration;
-    if (restart) audio.currentTime = 0;
-    stage.dataset.sound = 'starting';
-    // A blocked autoplay attempt must leave the silent visual intro usable.
-    audio.play().then(() => {
-      if (generation === soundGeneration) stage.dataset.sound = 'playing';
-    }).catch(error => {
-      if (generation === soundGeneration) stage.dataset.sound = error.name === 'NotAllowedError' ? 'blocked' : 'unavailable';
-    });
-  }
-
   function render(time) {
     const reveal = smooth(.8, 2.65, time);
     const activation = smooth(3.4, 4.75, time);
@@ -75,7 +53,7 @@ export function mountReveal(stage, onComplete = () => {}) {
     if (completed) return;
     completed = true;
     cancelAnimationFrame(frame);
-    frame = 0; elapsed = 6; audio.autoplay = false; stopSound(); render(6);
+    frame = 0; elapsed = 6; render(6);
     onComplete();
   }
   function replay() {
@@ -83,46 +61,27 @@ export function mountReveal(stage, onComplete = () => {}) {
     cancelAnimationFrame(frame);
     start = 0; elapsed = 0;
     if (reduceMotion.matches) return finish();
-    audio.autoplay = true;
-    playSound(true);
     render(0); frame = requestAnimationFrame(tick);
   }
   const onKeyDown = event => {
-    if (['Enter', ' '].includes(event.key)) { event.preventDefault(); onFirstInteraction(); }
-    else if (event.key === 'Escape') finish();
-    else if (event.key.toLowerCase() === 'm') { event.preventDefault(); audio.muted = !audio.muted; }
+    if (event.key === 'Escape') finish();
   };
   stage.addEventListener('keydown', onKeyDown);
-  const onFirstInteraction = event => {
-    if (event?.key === 'Escape') return finish();
-    if (!completed && !reduceMotion.matches && audio.paused) {
-      audio.currentTime = elapsed;
-      playSound();
-    }
-  };
-  document.addEventListener('click', onFirstInteraction);
-  document.addEventListener('keydown', onFirstInteraction);
   const onMotionChange = () => reduceMotion.matches ? finish() : replay();
   reduceMotion.addEventListener('change', onMotionChange);
   const onVisibilityChange = () => {
     if (document.hidden) {
-      resumeSound = !audio.paused;
-      stopSound(); cancelAnimationFrame(frame); frame = 0;
+      cancelAnimationFrame(frame); frame = 0;
     } else if (elapsed < 6 && !completed) {
-      if (resumeSound) playSound();
       start = 0; frame = requestAnimationFrame(tick);
     }
   };
   document.addEventListener('visibilitychange', onVisibilityChange);
-  const onPageHide = () => { cancelAnimationFrame(frame); stopSound(); };
+  const onPageHide = () => cancelAnimationFrame(frame);
   window.addEventListener('pagehide', onPageHide);
   replay();
   return () => {
     cancelAnimationFrame(frame);
-    audio.autoplay = false;
-    stopSound();
-    document.removeEventListener('click', onFirstInteraction);
-    document.removeEventListener('keydown', onFirstInteraction);
     stage.removeEventListener('keydown', onKeyDown);
     reduceMotion.removeEventListener('change', onMotionChange);
     document.removeEventListener('visibilitychange', onVisibilityChange);

@@ -6,7 +6,7 @@ import { createJourneyScrollMap, JOURNEY_START_FRAME } from './journey-scroll.mj
 import { advanceJourneyFrame, createJourneyCompletion, FINAL_FRAME_HOLD_MS } from './journey-motion.mjs';
 import { createFrameRatePanel } from './frame-rate-panel.js';
 import { framePlacement } from '/frame-placement.js';
-import { siteSound, CHESS_HIT_FRAME } from '/sounds/site-audio.js?v=state-772947c8390e';
+import { siteSound, CHESS_HIT_FRAME } from '/sounds/site-audio.js?v=frames-a9c04ad83c00';
 
 const $=id=>document.getElementById(id);
 const firstFrame=JOURNEY_START_FRAME,lastFrame=CHESS_HIT_FRAME;
