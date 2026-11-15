@@ -10,6 +10,13 @@ const require=createRequire(import.meta.url);
 const engine=process.env.SOFACET_BROWSER||'chromium';
 const workflows=process.env.SOFACET_ANALYTICS_WORKFLOW?[process.env.SOFACET_ANALYTICS_WORKFLOW]:['signup','signin','claim'];
 assert.ok(workflows.every(value=>['signup','signin','claim'].includes(value)),'Supported analytics workflow');
+const gameMode=process.env.SOFACET_ANALYTICS_GAME_MODE||'full';
+assert.ok(['full','website'].includes(gameMode),'Supported analytics game mode');
+const requireComplete=process.argv.includes('--require-complete');
+if(requireComplete){
+ assert.equal(gameMode,'full','The complete analytics gate requires the real game');
+ assert.deepEqual(workflows,['signup','signin','claim'],'The complete analytics gate requires every website workflow');
+}
 const browserType=require(process.env.SOFACET_PLAYWRIGHT_PATH||'playwright')[engine];
 assert.ok(['chromium','webkit'].includes(engine),'Supported analytics browser engine');
 const output=resolve(process.env.SOFACET_ANALYTICS_OUTPUT||'work/analytics-browser/'+engine);
@@ -17,7 +24,7 @@ await mkdir(output,{recursive:true});
 const browser=await browserType.launch({...engine==='chromium'?{args:['--enable-unsafe-swiftshader']}:{}});
 const previous={...process.env};
 Object.assign(process.env,{ANALYTICS_ENABLED:'true',GA4_MEASUREMENT_ID:'G-TEST123',POSTHOG_PUBLIC_KEY:'',POSTHOG_SESSION_REPLAY:'false',ANALYTICS_ID_SECRET:'',ARTWORK_CDN_BASE_URL:''});
-const summary={engine,scope:'Desktop browser functional checks against isolated rewards fixtures. Google SDK requests are intercepted with a mock tag; this does not prove real GA collection or physical-phone performance.',posthogEnabled:false,identifiedUsers:false,workflows:[],passed:false};
+const summary={engine,gameMode,requiredCompleteSuite:requireComplete,scope:'Desktop browser functional checks against isolated rewards fixtures. Google SDK requests are intercepted with a mock tag; this does not prove real GA collection or physical-phone performance.',posthogEnabled:false,identifiedUsers:false,workflows:[],passed:false};
 const forbidden=/private@example|test@example\.invalid|9876543210|012345|Updated Member|Test Member|token=private|#secret|cus_fixture|user_[a-f0-9]{64}/;
 
 function mockGoogleTag(){
@@ -30,7 +37,7 @@ try{
  for(const workflow of workflows)await withRewardsSite(async({origin,awards})=>{
   const context=await browser.newContext({viewport:{width:1280,height:900},reducedMotion:'reduce'});
   const page=await context.newPage(),providerRequests=[],gaEvents=[],failures=[];
-  const report={engine,workflow,origin,passed:false,errors:failures};
+  const report={engine,workflow,gameMode,origin,passed:false,errors:failures};
   summary.workflows.push(report);
   page.setDefaultTimeout(20000);
   const gaItems=name=>gaEvents.filter(item=>item[0]==='event'&&item[1]===name).map(item=>item[2]);
@@ -228,10 +235,10 @@ try{
    assert.ok(paths.every((path,index)=>index===0||path!==paths[index-1]),'No duplicate adjacent pageviews: '+JSON.stringify(paths));
    if(workflow!=='claim')assert.ok(!paths.includes('/coins-saved'),'Non-reward signup/sign-in must not claim a saved-coins screen');
    report.workflowPaths=paths;
-   if(workflow==='claim'){
+   if(workflow==='claim'&&gameMode==='full'){
     // These checks exercise real analytics hooks and controls. Full-quality
     // rendering remains covered by the independent 3D browser jobs. Use the
-    // existing Low mode to limit GPU work in this Ubuntu functional fixture.
+    // existing Low mode to bound graphics work in this lifecycle fixture.
     await page.evaluate(()=>{sessionStorage.setItem('sofacet-game-visited','1');localStorage.setItem('sofacet.controls-practised.v1','done');localStorage.setItem('sofacet.game-quality.v1','low');});
     const readyCount=gaItems('game_ready').length;
     await page.goto(origin+'/game');
@@ -269,7 +276,7 @@ try{
     const embeddedPaths=gaEvents.slice(embeddedStart).filter(item=>item[0]==='event'&&item[1]==='page_view').map(item=>item[2].page_path);
     assert.deepEqual(embeddedPaths,['/about','/privacy','/game'],'Embedded navigation delegates each outer screen once');
     report.embeddedPaths=embeddedPaths;
-   }
+   }else if(workflow==='claim')report.gameHooksOmitted='Explicit website mode; the complete macOS analytics gates exercise the real game.';
    assert.doesNotMatch(JSON.stringify(gaEvents),forbidden,'Workflow tracking omits entered details, OTP and editable share text');
    assert.ok(!providerRequests.some(url=>/posthog|analytics\.test/.test(url)),'GA-only fixture never activates replay/PostHog');
    assert.deepEqual(failures,[]);
@@ -290,8 +297,15 @@ try{
    await writeFile(resolve(output,workflow+'.json'),JSON.stringify(report,null,2)+'\n');
   }
  },{returningMember:workflow==='signin'});
+ if(requireComplete){
+  const claim=summary.workflows.find(report=>report.workflow==='claim');
+  assert.equal(claim?.gameQuality,'low','The complete gate records the real graphics mode');
+  assert.equal(claim?.gameHooksPassed,true,'The complete gate must finish real game lifecycle checks');
+  assert.deepEqual(claim?.embeddedPaths,['/about','/privacy','/game'],'The complete gate must finish embedded game navigation');
+  summary.completeSuiteVerified=true;
+ }
  summary.passed=true;
- console.log('Analytics '+engine+' checks passed for '+workflows.join(', ')+'. Google network remains intercepted.');
+ console.log('Analytics '+engine+' '+gameMode+' checks passed for '+workflows.join(', ')+'. Google network remains intercepted.');
 }finally{
  for(const key of Object.keys(process.env))if(!(key in previous))delete process.env[key];
  Object.assign(process.env,previous);

@@ -117,8 +117,10 @@ jobs:
         include:
           - browser: webkit
             os: macos-15
+            analytics_mode: full
           - browser: chromium
             os: ubuntu-24.04
+            analytics_mode: website
     runs-on: ${{ matrix.os }}
     # Keep functional coverage for the supported /video comparison route.
     timeout-minutes: 10
@@ -156,6 +158,7 @@ jobs:
         env:
           SOFACET_PLAYWRIGHT_PATH: ${{ runner.temp }}/browser-check/node_modules/playwright
           SOFACET_BROWSER: ${{ matrix.browser }}
+          SOFACET_ANALYTICS_GAME_MODE: ${{ matrix.analytics_mode }}
         run: node scripts/browser-analytics.mjs
       - name: Upload connection selection report
         if: always()
@@ -170,6 +173,44 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: analytics-${{ matrix.browser }}
+          path: work/analytics-browser/${{ matrix.browser }}/
+          if-no-files-found: warn
+          retention-days: 14
+
+  analytics:
+    name: ${{ matrix.browser }} analytics consent and game
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [webkit, chromium]
+    # The real game needs the same supported macOS GPU environment as the 3D
+    # checks. Ubuntu retains every website/consent/reward check above.
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - name: Install isolated analytics browser runtime
+        run: |
+          npm install --prefix "$RUNNER_TEMP/analytics-check" playwright@1.63.0
+          "$RUNNER_TEMP/analytics-check/node_modules/.bin/playwright" install ${{ matrix.browser }}
+      - name: Check complete analytics website and real game workflows
+        env:
+          SOFACET_PLAYWRIGHT_PATH: ${{ runner.temp }}/analytics-check/node_modules/playwright
+          SOFACET_BROWSER: ${{ matrix.browser }}
+          SOFACET_ANALYTICS_GAME_MODE: full
+        run: node scripts/browser-analytics.mjs --require-complete
+      - name: Upload complete analytics fixture reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: analytics-full-${{ matrix.browser }}
           path: work/analytics-browser/${{ matrix.browser }}/
           if-no-files-found: warn
           retention-days: 14
