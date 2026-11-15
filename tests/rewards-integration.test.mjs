@@ -21,7 +21,7 @@ test('HTTP flow registers, verifies leading-zero OTP, reads score, then saves pr
     assert.equal((await request('/api/player')).data.member, false);
     const payload = { ...profile, verificationToken };
     const result = await request('/api/membership', payload);
-    assert.equal(result.status, 200); assert.equal(result.data.savedPoints, 3200); assert.equal(result.data.remainingPoints, 5);
+    assert.equal(result.status, 200); assert.equal(result.data.savedPoints, 3205); assert.equal(result.data.remainingPoints, 5);
     assert.deepEqual(events.map(item => item.path), ['/rewards/auth', '/rewards/auth/verify', '/rewards/score', '/rewards/profile', '/rewards/profile', '/rewards/points']);
     assert.deepEqual(events[1].body, { registration_id: 'rreg_0', otp: '012345' });
     for (const event of events.slice(3)) assert.equal(event.authorization, events[2].authorization);
@@ -84,7 +84,7 @@ test('lost award responses retry with the same JWT and event key, without double
   await withRewardsSite(async ({ request, events, awards, state }) => {
     const verificationToken = await verify(request); state.loseAwardResponse = true;
     const result = await request('/api/membership', { ...profile, verificationToken });
-    assert.equal(result.status, 200); assert.equal(result.data.savedPoints, 3200);
+    assert.equal(result.status, 200); assert.equal(result.data.savedPoints, 3205);
     const attempts = events.filter(item => item.path === '/rewards/points');
     assert.equal(attempts.length, 2); assert.deepEqual(attempts[0], attempts[1]); assert.equal(awards.size, 1);
   });
@@ -119,7 +119,7 @@ test('verified account details persist without changing ownership, scores or rew
     assert.deepEqual((await request('/api/account/details', details)).data, { success: true });
     const account = (await request('/api/account')).data;
     for (const [key, value] of Object.entries(details)) assert.equal(account[key], value);
-    assert.equal(account.savedPoints, 3200); assert.equal(account.bestPoints, 3205);
+    assert.equal(account.savedPoints, 3205); assert.equal(account.bestPoints, 3205);
     const after = await readStore();
     assert.deepEqual(after.games, before.games); assert.deepEqual(after.rewardAccounts, before.rewardAccounts);
     assert.equal(after.players[member].profile.customerId, before.players[member].profile.customerId);

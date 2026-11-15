@@ -43,7 +43,14 @@ export default function AuthFlow({pageTitle,pointsContext=false,initialTab='crea
   const [challenge,setChallenge]=useState(null),[status,setStatus]=useState(''),[busy,setBusy]=useState(false),[config,setConfig]=useState(null),[resendAt,setResendAt]=useState(0),[seconds,setSeconds]=useState(0),[exit,setExit]=useState(null);
   const pendingRef=useRef(restoredResult.current),savedRef=useRef(false),lock=useRef(false),controller=useRef(null),proof=useRef(null),existingMember=useRef(false),mounted=useRef(true),completeRef=useRef(onComplete),backRef=useRef(onBack),exitRef=useRef(null);
   useEffect(()=>{
-    if(restoredSaved.current?.pointsSaved===true){setStep('success');setMemberCheck('guest');savedRef.current=true;}
+    if(restoredSaved.current?.pointsSaved!==true)return;
+    const abort=new AbortController();
+    request('/api/account',undefined,abort.signal).then(account=>{
+      if(!Number.isSafeInteger(account.savedPoints)||account.savedPoints<0)throw Error('Your saved SO/ COINS could not be confirmed.');
+      const current={...restoredSaved.current,pointsSaved:account.savedPoints>0,savedPoints:account.savedPoints,score:account.savedPoints};
+      writeScreenData('saved',current);setSaved(current);setStep('success');setMemberCheck('guest');savedRef.current=true;
+    }).catch(error=>{if(abort.signal.aborted)return;restoredSaved.current=null;writeScreenData('saved',null);setSaved(null);setTab('registered');setMemberCheck('guest');setStatus(error.message);});
+    return()=>abort.abort();
   },[]);
   useEffect(()=>{
     if(memberCheck!=='guest')return;
@@ -114,7 +121,7 @@ export default function AuthFlow({pageTitle,pointsContext=false,initialTab='crea
   }
   async function complete(value) {
     if(value.player?.member!==true)throw Error('Your account could not be confirmed.');
-    const score=pendingRef.current?.points??value.player.best_score??value.savedPoints;
+    const score=value.pointsSaved?value.savedPoints:pendingRef.current?.points??value.player.best_score??value.savedPoints;
     const confirmation={...value,score};
     savedRef.current=true;pendingRef.current=null;setSaved(confirmation);setStep('success');setResendAt(0);
     writeScreenData('reward',null);if(value.pointsSaved)writeScreenData('saved',{pointsSaved:true,savedPoints:value.savedPoints,score,player:{member:true,display_name:value.player.display_name}});

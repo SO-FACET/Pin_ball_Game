@@ -65,7 +65,7 @@ export function createMembershipApi({ getStore, commit, phone, publicPlayer, pro
     cachedProfile(id, remote);
     const ledger = getStore().rewardAccounts?.[customer.customer_id], player = getStore().players[id];
     return { name: remote.name, leaderboardName: remote.leaderboard_name, email: remote.email, phoneNumber: remote.phone,
-      marketingConsent: remote.marketing_consent, savedPoints: standing.balance * POINTS_PER_RUPEE,
+      marketingConsent: remote.marketing_consent, savedPoints: standing.balance * POINTS_PER_RUPEE + (ledger && !ledger.pending ? ledger.bestScore % POINTS_PER_RUPEE : 0),
       bestPoints: Math.max(ledger?.bestScore || 0, player.bestVerified ? player.best : 0) };
   }
   function gameFor(gameId, id, customerId) {
@@ -103,7 +103,7 @@ export function createMembershipApi({ getStore, commit, phone, publicPlayer, pro
         });
         ledger = getStore().rewardAccounts[customerId];
       }
-      return { pointsSaved: true, savedPoints: ledger.creditedUnits * POINTS_PER_RUPEE, bestPoints: ledger.bestScore, remainingPoints: ledger.bestScore % POINTS_PER_RUPEE };
+      return { pointsSaved: true, savedPoints: ledger.bestScore, bestPoints: ledger.bestScore, remainingPoints: ledger.bestScore % POINTS_PER_RUPEE };
     });
     jobs.set(customerId, job);
     try { return await job; } finally { if (jobs.get(customerId) === job) jobs.delete(customerId); }

@@ -16,7 +16,7 @@ test('a restored saved result keeps the same artwork as the completed game flow'
  const source=readFileSync(new URL('../collective-source/AuthFlow.jsx',import.meta.url),'utf8');
  const expression=source.match(/const inlineSaved=([^;]+);/)[1];
  const inlineSaved=Function('step','saved','return '+expression);
- const saved={pointsSaved:true,savedPoints:3200,score:3205};
+ const saved={pointsSaved:true,savedPoints:3205,score:3205};
  assert.equal(inlineSaved('success',saved),true);
  assert.equal(Boolean(inlineSaved('claim',saved)),false);
  assert.equal(Boolean(inlineSaved('success',{pointsSaved:false})),false);

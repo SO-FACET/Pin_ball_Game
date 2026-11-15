@@ -14,7 +14,7 @@ function setup(options={}) {
  let store={players:{one:{name:'Guest'},two:{name:'Other guest'}},games:{[gameId]:{player:'one',verified:true,score:3205},[otherGame]:{player:'one',verified:true,score:4100},[lowerGame]:{player:'one',verified:true,score:1000}}};
  const calls=[],credited=new Map();let customer='cus_test',timeout=false,clock=Date.now(),central={customer_id:'cus_test',phone:valid.phoneNumber,profile_complete:false};
  const provider={request:async()=>({challengeId:'private-provider-id',expiresIn:300,resendAfter:60,deliveryChannel:'whatsapp'}),verify:async ({otp,challengeId})=>{assert.equal(challengeId,'private-provider-id');return otp==='654321'?{verified:true,token:'private-jwt',customer_id:customer,expiresAt:clock+30*60000}: {verified:false}}};
- const api=createMembershipApi({getStore:()=>store,commit:change=>{const previous=structuredClone(store);try{change()}catch(error){store=previous;throw error}},phone:value=>{const result=normalisePhone(value);if(!result)throw new ServiceError(400,'Invalid phone');return result},publicPlayer:p=>({member:!!p.profile,display_name:p.name,best_score:p.best??null}),provider:options.provider??provider,now:()=>clock,profile:options.profile??(async(token,values)=>{assert.equal(token,'private-jwt');if(values)central={...central,...values,profile_complete:true};return central}),score:options.score??(async token=>{assert.equal(token,'private-jwt');return {balance:0,lifetime_earned:0,rank:null}}),award:async args=>{assert.equal(args.token,'private-jwt');calls.push({...args});if(!credited.has(args.eventId))credited.set(args.eventId,args.points);if(timeout){timeout=false;throw new ServiceError(503,'Temporary timeout')}return {balance:[...credited.values()].reduce((a,b)=>a+b,0)}}});
+ const api=createMembershipApi({getStore:()=>store,commit:change=>{const previous=structuredClone(store);try{change()}catch(error){store=previous;throw error}},phone:value=>{const result=normalisePhone(value);if(!result)throw new ServiceError(400,'Invalid phone');return result},publicPlayer:p=>({member:!!p.profile,display_name:p.name,best_score:p.best??null}),provider:options.provider??provider,now:()=>clock,profile:options.profile??(async(token,values)=>{assert.equal(token,'private-jwt');if(values)central={...central,...values,profile_complete:true};return central}),score:options.score??(async token=>{assert.equal(token,'private-jwt');const balance=[...credited.values()].reduce((a,b)=>a+b,0);return {balance,lifetime_earned:balance,rank:null}}),award:async args=>{assert.equal(args.token,'private-jwt');calls.push({...args});if(!credited.has(args.eventId))credited.set(args.eventId,args.points);if(timeout){timeout=false;throw new ServiceError(503,'Temporary timeout')}return {balance:[...credited.values()].reduce((a,b)=>a+b,0)}}});
  return {api,calls,credited,get store(){return store},get central(){return central},setCustomer:value=>customer=value,failNext:()=>timeout=true,advance:ms=>clock+=ms};
 }
 async function verified(fixture,id='one',phoneNumber=valid.phoneNumber,details=valid) {
@@ -56,16 +56,24 @@ test('server validates details and ignores no client-supplied score or reward',a
 test('verified scores credit 10 game points per ₹1, once; improvements grant only the difference',async()=>{
  const f=setup(),verificationToken=await verified(f),payload={...valid,verificationToken};
  const result=await f.api('/api/membership',payload,'one');
- assert.equal(result.savedPoints,3200);assert.equal(result.remainingPoints,5);assert.equal(result.bestPoints,3205);assert.equal(f.calls[0].points,320);assert.equal(result.player.display_name,'Test Nickname');assert.equal(f.central.marketing_consent,false);
+ assert.equal(result.savedPoints,3205);assert.equal(result.remainingPoints,5);assert.equal(result.bestPoints,3205);assert.equal(f.calls[0].points,320);assert.equal(result.player.display_name,'Test Nickname');assert.equal(f.central.marketing_consent,false);
+ const account=await f.api('/api/account',{},'one');assert.equal(account.savedPoints,3205);assert.equal(account.bestPoints,3205);assert.equal(account.savedPoints/10,320.5);
  await f.api('/api/membership',payload,'one');assert.equal(f.calls.length,1);
  await Promise.all([f.api('/api/membership',{...payload,gameId:otherGame},'one'),f.api('/api/membership',{...payload,gameId:otherGame},'one')]);assert.equal(f.calls.length,2);assert.equal(f.calls[1].points,90);assert.equal([...f.credited.values()].reduce((a,b)=>a+b,0),410);
  const lower=await f.api('/api/membership',{...payload,gameId:lowerGame},'one');assert.equal(lower.savedPoints,4100);assert.equal(f.calls.length,2);
  f.store.games[gameId].rewardCustomer='cus_other';await assert.rejects(f.api('/api/membership',payload,'one'),status(409));
 });
+test('the same saved score is available after signing in from another browser',async()=>{
+ const f=setup(),verificationToken=await verified(f);
+ await f.api('/api/membership',{...valid,verificationToken},'one');
+ f.advance(60001);await verified(f,'two');
+ const account=await f.api('/api/account',{},'two');
+ assert.equal(account.savedPoints,3205);assert.equal(account.bestPoints,3205);assert.equal(account.savedPoints/10,320.5);
+});
 test('a lost upstream response retries the persisted idempotency key without double credit',async()=>{
  const f=setup(),verificationToken=await verified(f),payload={...valid,verificationToken};f.failNext();
  await assert.rejects(f.api('/api/membership',payload,'one'),status(503));assert.ok(f.store.rewardAccounts.cus_test.pending);
- const result=await f.api('/api/membership',payload,'one');assert.equal(result.savedPoints,3200);assert.equal(f.calls[0].eventId,f.calls[1].eventId);assert.equal(f.credited.size,1);assert.equal(f.store.rewardAccounts.cus_test.pending,undefined);
+ const result=await f.api('/api/membership',payload,'one');assert.equal(result.savedPoints,3205);assert.equal(f.calls[0].eventId,f.calls[1].eventId);assert.equal(f.credited.size,1);assert.equal(f.store.rewardAccounts.cus_test.pending,undefined);
 });
 test('membership without a completed game never invents reward credits',async()=>{
  const f=setup(),verificationToken=await verified(f),payload={...valid,verificationToken};delete payload.gameId;payload.marketingConsent=true;
@@ -78,7 +86,7 @@ test('single-screen sign-up accepts only the collected details and preserves con
  for(const change of [{termsAccepted:false},{marketingConsent:null},{email:''},{verificationToken:'invalid'},{points:999999}])await assert.rejects(f.api('/api/membership',{...payload,...change},'one'),status(change.verificationToken?401:400));
  assert.equal(f.store.players.one.profile,undefined);assert.equal(f.calls.length,0);
  const result=await f.api('/api/membership',payload,'one');
- assert.equal(result.player.member,true);assert.equal(result.savedPoints,3200);assert.equal(f.calls[0].points,320);
+ assert.equal(result.player.member,true);assert.equal(result.savedPoints,3205);assert.equal(f.calls[0].points,320);
  assert.equal(f.central.email,valid.email);assert.equal(f.central.marketing_consent,false);
  assert.equal('email' in f.store.players.one.profile,false);assert.equal('city' in f.store.players.one.profile,false);
  f.central.dob='1990-01-01';f.central.city='Delhi';
@@ -88,7 +96,7 @@ test('single-screen sign-up accepts only the collected details and preserves con
 
 test('registered sessions save verified later games without registering or requesting OTP again',async()=>{
  const f=setup();const verificationToken=await verified(f),payload={...valid,verificationToken};delete payload.gameId;payload.marketingConsent=true;await f.api('/api/membership',payload,'one');
- const first=await f.api('/api/membership/rewards',{gameId},'one');assert.equal(first.pointsSaved,true);assert.equal(first.savedPoints,3200);assert.equal(f.calls.length,1);
+ const first=await f.api('/api/membership/rewards',{gameId},'one');assert.equal(first.pointsSaved,true);assert.equal(first.savedPoints,3205);assert.equal(f.calls.length,1);
  await f.api('/api/membership/rewards',{gameId},'one');assert.equal(f.calls.length,1);
  await Promise.all([f.api('/api/membership/rewards',{gameId:otherGame},'one'),f.api('/api/membership/rewards',{gameId:otherGame},'one')]);assert.equal(f.calls.length,2);assert.equal(f.calls[1].points,90);
  const lower=await f.api('/api/membership/rewards',{gameId:lowerGame},'one');assert.equal(lower.savedPoints,4100);assert.equal(f.calls.length,2);
@@ -116,7 +124,7 @@ test('registered reward requests require the session member and its own verified
 });
 test('a returning member can retry saving points after a lost response without duplicate credit',async()=>{
  const f=setup();const verificationToken=await verified(f),payload={...valid,verificationToken};delete payload.gameId;payload.marketingConsent=true;await f.api('/api/membership',payload,'one');f.failNext();
- await assert.rejects(f.api('/api/membership/rewards',{gameId},'one'),status(503));const result=await f.api('/api/membership/rewards',{gameId},'one');assert.equal(result.savedPoints,3200);assert.equal(f.calls[0].eventId,f.calls[1].eventId);assert.equal(f.credited.size,1);
+ await assert.rejects(f.api('/api/membership/rewards',{gameId},'one'),status(503));const result=await f.api('/api/membership/rewards',{gameId},'one');assert.equal(result.savedPoints,3205);assert.equal(f.calls[0].eventId,f.calls[1].eventId);assert.equal(f.credited.size,1);
 });
 
 test('resend replaces prior registration and proof, expiry rejects verification, and profile edits require a new code',async()=>{
@@ -141,7 +149,7 @@ test('expired JWT requires new verification and retries the pending award using 
  await assert.rejects(f.api('/api/membership/rewards',{gameId},'one'),error=>error.status===401&&error.code==='rewards_verification_required');
  assert.equal(f.calls.length,1);
  const fresh=await verified(f);const result=await f.api('/api/membership',{...valid,verificationToken:fresh},'one');
- assert.equal(result.savedPoints,3200);assert.equal(f.calls[1].eventId,eventId);assert.equal(f.credited.size,1);
+ assert.equal(result.savedPoints,3205);assert.equal(f.calls[1].eventId,eventId);assert.equal(f.credited.size,1);
 });
 
 test('a successful OTP exchange survives a transient score lookup failure without consuming the code again',async()=>{

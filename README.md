@@ -191,6 +191,8 @@ All writes require JSON and the configured exact Origin. Keep the frontend and A
 | `GET /api/leaderboard` | Member-only game ranking with `entries` and `me` |
 | `GET /api/rewards/leaderboard` | Member-only external rewards ranking; requires rewards configuration |
 
+`savedPoints` is the exact verified SO/ COINS total, and pages calculate the displayed rupee value as `savedPoints / 10`. `remainingPoints` is the portion below one rupee that the rewards service cannot credit yet; the server keeps it with the verified score so it appears again after sign-in.
+
 The legacy phone-only `/api/member` route returns 410. Use `/api/membership` after OTP verification; there is no phone-only authentication fallback.
 
 I’ve kept phone verification first in the save flow. The player enters their full name and mobile number, accepts the 18+ declaration and terms, then verifies the code. On the details step they add their email and city. Date of birth is visible as a disabled field for now. The initial leaderboard name comes from the full name. Marketing consent is optional and defaults off, and the country list shows India first.
