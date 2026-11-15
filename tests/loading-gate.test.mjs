@@ -12,7 +12,7 @@ function fixture(){
   classList:{add(){}},contains:()=>false,remove(){removed++}};
  const context={document:{querySelector:selector=>selector==='#site-loader'?overlay:main,documentElement:{hasAttribute:()=>false},body},
   mountReveal:(_stage,done)=>{revealed=done;return()=>cleaned++},matchMedia:()=>({matches:true}),setTimeout,Promise};
- vm.runInNewContext(source.replace(/^import .*;\n/,'').replace('export function','function')+';this.finishLoading=finishLoading;',context);
+ vm.runInNewContext(source.replace(/^import .*;\r?\n/gm,'').replace('export function','function')+';this.finishLoading=finishLoading;',context);
  return{context,attrs,main,body,reveal:()=>revealed(),get removed(){return removed},get cleaned(){return cleaned}};
 }
 
