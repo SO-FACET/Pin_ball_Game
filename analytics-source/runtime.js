@@ -1,5 +1,8 @@
+import {boundedDuration,createDurationClock} from './duration.js';
+
 const eventKeys={
  page_view:[],page_leave:['duration_ms'],navigation_click:['destination','link_kind','control'],ui_click:['control'],
+ page_engagement:['page_active_ms'],game_engagement:['game_active_ms'],
  form_submit:['form'],form_invalid:['form','field'],game_started:['online'],game_finished:['points','duration_ms'],
  game_paused:[],game_resumed:[],game_ready:[],game_load_failed:['phase','code'],tutorial_completed:['outcome'],
  score_verified:['points','best_points'],reward_saved:['points'],reward_discarded:[],
@@ -21,12 +24,14 @@ export function redact(value){
 }
 export function cleanProperties(name,properties){
  const clean={};
- const numeric=new Set(['duration_ms','points','best_points','status']);
+ const numeric=new Set(['points','best_points','status']);
+ const durations=new Set(['duration_ms','page_active_ms','game_active_ms']);
  const enums={method:new Set(['button','form','phone_otp','clipboard','native','whatsapp','telegram','x','email','gmail']),link_kind:new Set(['internal','external','email','phone']),flow:new Set(['account','signin','signup'])};
  for(const key of eventKeys[name]||[]){
   const value=properties?.[key];
   if(key==='endpoint'){if(endpoints.has(value))clean[key]=value;continue}
   if(key==='destination'){if(routes.has(value)||['external','email','phone'].includes(value))clean[key]=value;continue}
+  if(durations.has(key)){const duration=boundedDuration(value);if(duration!==null)clean[key]=duration;continue}
   if(numeric.has(key)){if(typeof value==='number'&&Number.isFinite(value))clean[key]=Math.max(0,Math.round(value));continue}
   if(key==='online'){if(typeof value==='boolean')clean[key]=value;continue}
   if(enums[key]){if(enums[key].has(value))clean[key]=value;continue}
@@ -39,11 +44,29 @@ export function installAnalytics(win,{loadGoogle,loadPosthog}={}){
  if(win.sofacetAnalytics)return win.sofacetAnalytics;
  const embedded=win.top!==win;
  let enabled=false,config=null,google=null,posthog=null,queue=[],generation=0,starting=null,identityRevision=0,userId=null,identityPending=null;
- let lastPage='',pageAt=Date.now(),errors=0;
+ let lastPage='',errors=0,gameActivity=false,activityPublished=false,timingReady=false,durationTimer=null;
  const allowed=()=>{try{return win.sofacetCookiePreferences?.allows('analytics')===true}catch{return false}};
  const call=(fn)=>{try{return fn()}catch{}};
  const topApi=()=>call(()=>win.top.sofacetAnalytics);
  const common=(path=win.top.location.href)=>({page_path:safePath(path,win.location.origin),environment:config?.environment||'production',release:config?.release||''});
+ const duration=createDurationClock({now:()=>typeof win.performance?.now==='function'?win.performance.now():Date.now(),emit:(name,properties,path)=>record(name,properties,path)});
+ const foreground=()=>win.document.hidden!==true&&(!win.document.visibilityState||win.document.visibilityState==='visible')&&(typeof win.document.hasFocus!=='function'||call(()=>win.document.hasFocus())===true);
+ function clearDurationTimer(){if(durationTimer!==null){call(()=>win.clearInterval(durationTimer));durationTimer=null}}
+ function syncDuration(){
+  const active=timingReady&&enabled&&allowed()&&Boolean(lastPage)&&foreground();
+  duration.setForeground(active);
+  if(active&&durationTimer===null&&typeof win.setInterval==='function')durationTimer=call(()=>win.setInterval(()=>{
+   if(!enabled||!allowed()){stop();return}
+   syncDuration();if(lastPage&&foreground())duration.flush();
+  },15000))??null;
+  else if(!active)clearDurationTimer();
+ }
+ function setGameActivity(active){
+  if(typeof active!=='boolean')return;
+  gameActivity=active;activityPublished=true;
+  if(embedded)return call(()=>topApi()?.setGameActivity(active));
+  duration.setGameActivity(active&&lastPage==='/game');
+ }
  function send(item){
   if(!enabled||!allowed())return;
   call(()=>google?.track(item.name,item.properties));
@@ -51,6 +74,8 @@ export function installAnalytics(win,{loadGoogle,loadPosthog}={}){
  }
  function track(name,properties={}){
   if(embedded)return call(()=>topApi()?.track(name,properties));
+  if(name==='game_started')duration.startGame();
+  if(name==='game_finished'){gameActivity=false;properties={...properties,duration_ms:duration.finishGame()}}
   record(name,properties);
  }
  function record(name,properties={},path){
@@ -73,12 +98,14 @@ export function installAnalytics(win,{loadGoogle,loadPosthog}={}){
   const path=safePath(win.location.href,win.location.origin);
   if(path===lastPage)return;
   if(lastPage)leavePage();
-  lastPage=path;pageAt=Date.now();track('page_view');
+  lastPage=path;duration.enterPage(path);duration.setGameActivity(gameActivity&&path==='/game');track('page_view');syncDuration();
  }
  function leavePage(){
   if(!lastPage)return;
-  record('page_leave',{duration_ms:Date.now()-pageAt},lastPage);
+  record('page_leave',{duration_ms:duration.leavePage()},lastPage);
   lastPage='';
+  duration.setGameActivity(false);
+  syncDuration();
  }
  async function refreshIdentity(){
   if(embedded)return topApi()?.refreshIdentity();
@@ -105,6 +132,7 @@ export function installAnalytics(win,{loadGoogle,loadPosthog}={}){
   identityRevision++;userId=null;call(()=>google?.identify(null));call(()=>posthog?.reset());
  }
  function stop(){
+  timingReady=false;clearDurationTimer();duration.stop();
   enabled=false;generation++;identityRevision++;userId=null;queue=[];lastPage='';
   call(()=>google?.stop());call(()=>posthog?.stop());
   google=null;posthog=null;
@@ -134,14 +162,21 @@ export function installAnalytics(win,{loadGoogle,loadPosthog}={}){
     call(()=>google?.identify(userId));call(()=>userId?posthog?.identify(userId):posthog?.clearIdentity?.());
    }catch{}finally{starting=null;}
    if(!enabled||epoch!==generation||!allowed())return;
-   pageView();for(const item of queue.splice(0))send(item);
+   timingReady=Boolean(google||posthog);
+   if(timingReady)duration.start({visible:foreground()});else duration.stop();
+   pageView();
+   // History may already have queued this pageview while providers loaded.
+   // start() reset the clock, so reconcile its page even when pageView dedupes.
+   duration.enterPage(lastPage);duration.setGameActivity(gameActivity&&lastPage==='/game');syncDuration();
+   for(const item of queue.splice(0))send(item);
   })();
   await starting;
   // A rapid revoke/regrant during SDK loading should restart with the new choice.
   if(allowed()&&!enabled&&epoch!==generation)void start();
  }
- const api={track,captureError,refreshIdentity,resetIdentity,getStatus:()=>({enabled:enabled&&allowed(),google:!!google,posthog:!!posthog,recording:!!call(()=>posthog?.recording())})};
+ const api={track,setGameActivity,captureError,refreshIdentity,resetIdentity,getStatus:()=>({enabled:enabled&&allowed(),google:!!google,posthog:!!posthog,recording:!!call(()=>posthog?.recording())})};
  win.sofacetAnalytics=api;
+ call(()=>win.dispatchEvent(new (win.CustomEvent||win.Event)('sofacet:analytics-ready')));
  win.addEventListener('error',event=>{
   if(event.error||event.message)captureError(event.error||new Error(event.message),{source:'uncaught'});
   else if(event.target?.tagName==='SCRIPT'||event.target?.tagName==='LINK')captureError(new Error('Application asset failed to load'),{source:'asset'});
@@ -173,8 +208,11 @@ export function installAnalytics(win,{loadGoogle,loadPosthog}={}){
   win.addEventListener('popstate',()=>{if(enabled&&allowed())pageView()});
   win.addEventListener('pagehide',leavePage);
   win.addEventListener('pageshow',event=>{if(event.persisted&&enabled&&allowed())pageView()});
+  win.addEventListener('focus',syncDuration);
+  win.addEventListener('blur',syncDuration);
+  win.document.addEventListener('visibilitychange',syncDuration);
   win.addEventListener('sofacet:cookie-preferences',()=>{if(allowed())void start();else stop()});
   void start();
- }
+ }else call(()=>win.top.addEventListener('sofacet:analytics-ready',()=>{if(activityPublished)topApi()?.setGameActivity(gameActivity)}));
  return api;
 }

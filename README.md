@@ -40,15 +40,39 @@ The controller is inserted once by the shared page shell. It fetches configurati
 
 Pageviews are sent manually for distinct public paths, including routes inside the game. Disable Enhanced measurement's history-based pageviews and automatic form interactions in the GA4 web stream so they do not duplicate the app's events or collect uncontrolled form metadata. Google documents the separate history setting in its [manual pageview guide](https://developers.google.com/analytics/devguides/collection/ga4/views). Page metadata is sanitized at global, configuration and event scope; query strings, fragments and unknown private paths are excluded. The Google script also uses `no-referrer` for its own request.
 
+For native Google Analytics destination tags, also set `send_page_view=false`, `allow_google_signals=false`, `allow_ad_personalization_signals=false`, and `cookie_flags=SameSite=Lax;Secure` in the destination's **Configuration settings**. Native initialization can bypass the on-page `config` settings; the destination configuration preserves manual pageviews and the intended privacy controls. See Google's [initialization behavior](https://support.google.com/analytics/answer/18411054?hl=en) and [privacy settings](https://developers.google.com/tag-platform/security/guides/privacy).
+
 | Events | Meaning |
 | --- | --- |
 | `page_view`, `page_leave`, `navigation_click`, `ui_click` | Public page and control activity; cookie-dialog interactions are excluded |
+| `page_engagement`, `game_engagement` | Positive increments of foreground page time (`page_active_ms`) and active gameplay (`game_active_ms`) |
 | `game_ready`, `game_started`, `game_finished`, `game_paused`, `game_resumed`, `tutorial_completed` | Game lifecycle; embedded readiness has one owner after the cards finish |
 | `score_verified`, `reward_saved`, `reward_discarded` | Verified score, server-confirmed saving, and an explicit unsaved-reward exit |
 | `otp_requested`, `otp_verified`, `login`, `sign_up`, `profile_updated`, `logout`, `first_cuts_registered` | Confirmed API outcomes, never successful conversions for failed OTPs or incomplete responses |
 | `form_submit`, `form_invalid`, `api_request`, `client_error`, `share` | Bounded diagnostics and sharing; no input values, request bodies or contact addresses |
 
 `game_finished` is a client result; `score_verified` is server verified. Event counts are not a financial ledger. Repeated successful idempotent reward requests can produce repeated `reward_saved` events. Names, email addresses, phone numbers, OTPs, game IDs and authentication tokens are excluded from provider event properties. New events must be added to the explicit allowed-property schema in `analytics-source/runtime.js`.
+
+#### Active page and gameplay time
+
+The outer analytics controller measures time using a monotonic clock. Page time accrues while the page is visible and its document has focus, including focus within the game iframe. Gameplay time additionally requires an active run with no pause, tutorial, blocking overlay, hidden game or result screen. Reading, watching the entrance video and a ball moving without input remain valid foreground time; there is no arbitrary inactivity cutoff. Gameplay time is a subset of page time, so adding the two metrics would count play time twice.
+
+While Analytics consent and a provider are ready, the controller sends positive time deltas about every 15 seconds and at route, visibility, focus, game-activity and page-exit transitions. A single outer timer owns embedded screens. Each flush removes the reported segment, so a visibility change followed by pagehide cannot report it twice. Back/forward-cache restoration resumes from a fresh timestamp. Mobile process termination can still lose a final unsent interval; browser exit delivery is best effort.
+
+Game activity is a local boolean exposed through `sofacetAnalytics.setGameActivity`. The game republishes its current state when the controller becomes available. Accepting Analytics halfway through a run starts counting at provider readiness, without collecting the preceding play. Withdrawing consent stops the timer and discards pending time and totals; accepting again starts a new observation period. The local game-state signal does not itself send an event or identify a player.
+
+Create exactly these two **event-scoped custom metrics** in GA4 Admin → Data display → Custom definitions, using **Milliseconds** as the unit:
+
+| Metric name | Event parameter | Event carrying the increment |
+| --- | --- | --- |
+| Active page time | `page_active_ms` | `page_engagement` |
+| Active play time | `game_active_ms` | `game_engagement` |
+
+In Pages and screens or a free-form Exploration, group by **Page path and screen class** and show Views, Active users and Active page time. A gameplay Exploration can filter to `game_engagement` and show Active play time with Active users. Each custom metric sums increments, including unfinished games. An average per started game requires matching the observed game cohort: mid-run consent can produce play time without a collected `game_started`. Do not interpret the number of time-increment events as the number of plays.
+
+`page_leave.duration_ms` is the current view's total foreground time; `game_finished.duration_ms` is the consented active time in the current run, excluding pauses and background time. These totals are supplementary lifecycle fields, and must not be added to the delta metrics. Do not register a generic `duration_ms` metric: API latency also uses that parameter. Time fields accept finite numbers and are bounded to 24 hours per value; score fields retain their own numeric behavior.
+
+GA4's native user engagement and Average engagement time remain SDK-managed, separate metrics. The application does not synthesize the reserved `user_engagement` event or set `engagement_time_msec`, and Enhanced measurement stays off. Google documents [native engagement](https://support.google.com/analytics/answer/11109416?hl=en), [custom metric setup and its 24–48 hour reporting delay](https://support.google.com/analytics/answer/14239619?hl=en), and [visibility-aware measurement](https://developers.google.com/analytics/devguides/collection/ga4/sessions). Custom metrics apply to newly collected data after setup; the change does not recover earlier play durations.
 
 The launch can remain anonymous by leaving `ANALYTICS_ID_SECRET` unset. Optional signed-in correlation requires a separate random secret of at least 32 characters; the server then returns an HMAC identifier only for a verified account session. It never returns the customer ID or authentication credentials. Anonymous identity checks create no player or cookie. Sign-out and expired sessions clear analytics identity. Same-origin embedded screens delegate to the outer controller instead of loading a second SDK or sending duplicate pageviews.
 
