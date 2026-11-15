@@ -310,7 +310,8 @@ try{
     await waitForGa('game_started',properties=>properties.online===true&&properties.page_path==='/game');
     assert.equal(gaItems('game_started').length,startedCount+1,'One actual game start');
     const pausedCount=gaItems('game_paused').length,resumedCount=gaItems('game_resumed').length;
-    await page.locator('#pause').click();
+    // The Pause toolbar is fixed in the viewport; retain actionability without a redundant scroll.
+    await page.locator('#pause').click({scroll:'none'});
     await waitForGa('game_paused',properties=>properties.page_path==='/game');
     assert.equal(gaItems('game_paused').length,pausedCount+1);
     await page.locator('#pause-resume').click();
