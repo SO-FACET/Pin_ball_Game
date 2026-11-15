@@ -310,7 +310,8 @@ try{
     await waitForGa('game_started',properties=>properties.online===true&&properties.page_path==='/game');
     assert.equal(gaItems('game_started').length,startedCount+1,'One actual game start');
     const pausedCount=gaItems('game_paused').length,resumedCount=gaItems('game_resumed').length;
-    // The Pause toolbar is fixed in the viewport; retain actionability without a redundant scroll.
+    // Pause toolbars and the child iframe are fixed in view. No-scroll retains
+    // viewport reachability, actionability and normal trusted pointer input.
     await page.locator('#pause').click({scroll:'none'});
     await waitForGa('game_paused',properties=>properties.page_path==='/game');
     assert.equal(gaItems('game_paused').length,pausedCount+1);
@@ -406,13 +407,13 @@ try{
     await page.waitForFunction(()=>window.sofacetAnalytics.getStatus().google);
     await childRunning();
     await page.evaluate(()=>window.__durationFixture.advance(1000));
-    await child.locator('#pause').click();
+    await child.locator('#pause').click({scroll:'none'});
     await expectGameSegments([1000]);
     await page.evaluate(()=>window.__durationFixture.advance(60000));
     await childFrames();assert.deepEqual(gameSegments(),[1000],'Paused time produces no game engagement');
     await childRunning();
     await page.evaluate(()=>window.__durationFixture.advance(2000));
-    await child.locator('#pause').click();
+    await child.locator('#pause').click({scroll:'none'});
     await expectGameSegments([1000,2000]);
 
     await setConsent(false);
@@ -423,7 +424,7 @@ try{
     await page.waitForFunction(()=>window.sofacetAnalytics.getStatus().google);
     await childRunning();
     await page.evaluate(()=>window.__durationFixture.advance(500));
-    await child.locator('#pause').click();
+    await child.locator('#pause').click({scroll:'none'});
     await expectGameSegments([1000,2000,500]);
 
     await childRunning();
@@ -443,7 +444,7 @@ try{
     await page.waitForURL('**/game');
     await childRunning();
     await page.evaluate(()=>window.__durationFixture.advance(250));
-    await child.locator('#pause').click();
+    await child.locator('#pause').click({scroll:'none'});
     await expectGameSegments([1000,2000,500,750,250]);
 
     await childRunning();
@@ -453,7 +454,7 @@ try{
     await page.evaluate(()=>window.__durationFixture.advance(60000));
     await childVisibility(true);await childFrames();
     await page.evaluate(()=>window.__durationFixture.advance(200));
-    await child.locator('#pause').click();
+    await child.locator('#pause').click({scroll:'none'});
     await expectGameSegments([1000,2000,500,750,250,100,200]);
     report.iframeDurationChecks={passed:true,controlledParentClockOnly:true,childNativeClock:true,normalUiControls:true,controlledParentVisibilityMessages:true,preConsentMsExcluded:60000,revokedMsExcluded:60000,pausedMsExcluded:60000,infoMsExcluded:62500,parentInactiveMsExcluded:60000,gameSegmentsMs:gameSegments()};
    }else if(workflow==='claim')report.gameHooksOmitted='Explicit website mode; the complete macOS analytics gates exercise the real game.';
