@@ -40,9 +40,11 @@ function installDurationFixtureClock(){
  const nativeNow=performance.now.bind(performance);
  let fixed=null,hidden=false;
  const descriptors={hidden:Object.getOwnPropertyDescriptor(document,'hidden'),visibilityState:Object.getOwnPropertyDescriptor(document,'visibilityState')};
- Object.defineProperty(performance,'now',{configurable:true,value:()=>fixed===null?nativeNow():fixed});
  window.__durationFixture={
-  freeze(){if(fixed===null)fixed=Math.ceil(nativeNow());return fixed;},
+  freeze(){
+   if(fixed===null){fixed=Math.ceil(nativeNow());Object.defineProperty(performance,'now',{configurable:true,value:()=>fixed});}
+   return fixed;
+  },
   advance(ms){if(fixed===null||!Number.isFinite(ms)||ms<0)throw Error('Invalid controlled duration advance');fixed+=ms;},
   visibility(value){
    hidden=!value;
@@ -324,13 +326,31 @@ try{
     await info.locator('[data-menu-panel] a[href^="/privacy"]:not([data-cookie-settings])').click();
     await page.waitForURL('**/privacy');
     await info.getByRole('button',{name:'Open navigation menu',exact:true}).click();
-    await info.locator('[data-menu-panel] [data-game-return]').click();
-    await page.waitForURL('**/game');
+    // Returning refreshes the main document's account session and then its
+    // analytics identity. Finish that real request chain before this fixture
+    // deliberately tears the document down to build the next parent harness.
+    let sessionFinished=false,identityRequest;
+    const mainEndpoint=(request,path)=>request.frame()===page.mainFrame()&&new URL(request.url()).pathname===path;
+    const afterBackSession=page.waitForEvent('requestfinished',{predicate:request=>{
+     if(!mainEndpoint(request,'/api/account/session'))return false;
+     sessionFinished=true;return true;
+    }});
+    const afterBackIdentityStarted=page.waitForEvent('request',{predicate:request=>{
+     if(!sessionFinished||!mainEndpoint(request,'/api/analytics-identity'))return false;
+     identityRequest=request;return true;
+    }});
+    const afterBackIdentity=page.waitForEvent('requestfinished',{predicate:request=>request===identityRequest});
+    const settledRequests=await Promise.all([afterBackSession,afterBackIdentityStarted,afterBackIdentity,(async()=>{
+     await info.locator('[data-menu-panel] [data-game-return]').click();
+     await page.waitForURL('**/game');
+    })()]);
+    for(const request of [settledRequests[0],settledRequests[2]])assert.equal((await request.response()).status(),200,'Post-Back identity/session requests finish successfully before teardown');
     const deadline=Date.now()+20000;
     while(gaEvents.slice(embeddedStart).filter(item=>item[0]==='event'&&item[1]==='page_view').length<3&&Date.now()<deadline)await delay(25);
     const embeddedPaths=gaEvents.slice(embeddedStart).filter(item=>item[0]==='event'&&item[1]==='page_view').map(item=>item[2].page_path);
     assert.deepEqual(embeddedPaths,['/about','/privacy','/game'],'Embedded navigation delegates each outer screen once');
     report.embeddedPaths=embeddedPaths;
+    report.postBackIdentitySettled=true;
 
     // A test-owned parent embeds the production game. Only this parent's
     // analytics clock is frozen; the child's renderer, RAF and physics remain
