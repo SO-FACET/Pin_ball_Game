@@ -12,6 +12,7 @@ import {createMembershipApi} from './membership-api.mjs';
 import {leaderboardName} from './game-source/src/player-copy.ts';
 import {routeDocuments,canonicalHref} from './site-routes.js';
 import {normaliseArtworkCDNBase} from './shared/artwork-assets.js';
+import {analyticsConfig,analyticsUserId} from './analytics-config.mjs';
 
 const root=resolve(fileURLToPath(new URL('.',import.meta.url)));
 const artworkCDN=normaliseArtworkCDNBase(process.env.ARTWORK_CDN_BASE_URL??'https://media.sofacet.com');
@@ -71,6 +72,12 @@ async function api(request,response,path){
   return json(response,202,{received:true});
  }
  if(path==='/api/account/session'&&request.method==='GET')return json(response,200,await membershipApi(path,{},playerId(request)));
+ if(path==='/api/analytics-identity'&&request.method==='GET'){
+  const id=playerId(request);
+  if(!analyticsConfig().enabled||!id||process.env.ANALYTICS_ID_SECRET?.length<32||!process.env.ANALYTICS_ID_SECRET)return json(response,200,{userId:null});
+  try{const customer=await membershipApi(path,{},id);return json(response,200,{userId:analyticsUserId(customer.customerId)})}
+  catch{return json(response,200,{userId:null})}
+ }
  const [id,p]=player(request,response);
  if(path==='/api/player'&&request.method==='GET')return json(response,200,publicPlayer(p));
  if(path==='/api/account'&&request.method==='GET'){
@@ -139,6 +146,7 @@ const server=createServer(async(request,response)=>{
   }
   path=decodeURIComponent(requested.pathname);
   if(path==='/health'&&(request.method==='GET'||request.method==='HEAD'))return json(response,200,{status:'ok'});
+  if(path==='/api/analytics-config'&&request.method==='GET')return json(response,200,analyticsConfig());
   if(path==='/api/media-config'&&request.method==='GET')return json(response,200,{baseURL:process.env.MEDIA_CDN_BASE_URL||'',artworkBaseURL:artworkCDN,entranceManifestURL:process.env.ENTRANCE_VIDEO_MANIFEST_URL||'',entrance4kManifestURL:process.env.ENTRANCE_VIDEO_4K_MANIFEST_URL||''});
   if(path.startsWith('/api/'))return await api(request,response,path);
   if(request.method!=='GET'&&request.method!=='HEAD')fail(405,'Method not allowed.');

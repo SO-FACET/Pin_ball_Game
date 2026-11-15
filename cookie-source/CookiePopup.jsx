@@ -36,14 +36,14 @@ export default function CookiePopup({showNotice,settingsOpen,choice,persisted,op
      <span className="option-status">Always on</span>
     </div>
     <div className="preference-row">
-     <div><div className="option-name" id="sf-analytics-label">Analytics</div><p className="option-description" id="sf-analytics-description">Site visits and session recordings.</p></div>
+     <div><div className="option-name" id="sf-analytics-label">Analytics</div><p className="option-description" id="sf-analytics-description">Site visits, gameplay and events.</p></div>
      <label className="switch-control"><span className="option-status" aria-hidden="true">{analytics?'On':'Off'}</span><input name="analytics" type="checkbox" role="switch" aria-labelledby="sf-analytics-label" aria-describedby="sf-analytics-description" checked={analytics} onChange={event=>setAnalytics(event.target.checked)}/></label>
     </div>
     <div className="preference-row">
      <div><div className="option-name" id="sf-advertising-label">Advertising</div><p className="option-description" id="sf-advertising-description">Ad performance and personalised ads.</p></div>
      <label className="switch-control"><span className="option-status" aria-hidden="true">{advertising?'On':'Off'}</span><input name="advertising" type="checkbox" role="switch" aria-labelledby="sf-advertising-label" aria-describedby="sf-advertising-description" checked={advertising} onChange={event=>setAdvertising(event.target.checked)}/></label>
     </div>
-    <p className="in-use-note">Analytics and advertising are not currently in use.</p>
+    <p className="in-use-note">Google Analytics measures visits and events only with your Analytics choice enabled. Advertising and session recording are not currently in use.</p>
     <div className="privacy-row"><a className="privacy-link" href={policy}>Privacy policy</a><p className="retention-note">{persisted?'Saved in this browser for 12 months.':'Your choice applies to this visit only.'}</p></div>
     <div className="actions"><button className="button outline" type="button" data-reject onClick={()=>save(false,false)}>Essential only</button><button className="button" type="submit">Save preferences</button></div>
    </form>

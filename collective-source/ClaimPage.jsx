@@ -7,6 +7,7 @@ import {capitaliseName,formatPoints,rewardMoney} from '../game-source/src/player
 import {Arrow} from './icons.jsx';
 import {normaliseDesignPhone} from './auth-values.js';
 import {useSubmission} from './form-actions.js';
+import {track} from '../shared/analytics.js';
 
 export default function ClaimPage({pageTitle='SO/ FACET — My SO/ COINS',result,confirmation=null,name = '',phone = '',dialCode = '+91',challengePhone,challengeId,twoStep=false,email='',onStart,termsUrl,privacyUrl,onClaim,onResend,onBack,onClose,onSignIn,status = '',resendSeconds = 0,working = false}) {
   const [showConfirmation,setShowConfirmation]=useState(Boolean(confirmation));
@@ -55,7 +56,7 @@ export default function ClaimPage({pageTitle='SO/ FACET — My SO/ COINS',result
   const verificationUnavailable='Phone verification is unavailable. Please try again later.';
   function sendOtp(event) {
     if (!event.currentTarget.form.reportValidity()) return;
-    if (!normaliseDesignPhone(mobile,dial)) {setMessage('Please enter a valid mobile number.');return;}
+    if (!normaliseDesignPhone(mobile,dial)) {track('form_invalid',{form:'claim',field:'tel'});setMessage('Please enter a valid mobile number.');return;}
     if (twoStep&&changed) {
       void submit(onStart,{name:fullName,phone:mobile,country:dial},verificationUnavailable);
       return;
@@ -73,8 +74,8 @@ export default function ClaimPage({pageTitle='SO/ FACET — My SO/ COINS',result
   }
   function save(event) {
     event.preventDefault();
-    if (changed) {setMessage('Send an OTP to verify your mobile number first.');return;}
-    if (!/^\d{6}$/.test(otp)) {setMessage('Please enter the six-digit code.');return;}
+    if (changed) {track('form_invalid',{form:'claim',field:'tel'});setMessage('Send an OTP to verify your mobile number first.');return;}
+    if (!/^\d{6}$/.test(otp)) {track('form_invalid',{form:'claim',field:'otp'});setMessage('Please enter the six-digit code.');return;}
     void submit(async values=>{
       const result=await onClaim(values);
       if(twoStep&&!result?.existingMember){
@@ -88,20 +89,20 @@ export default function ClaimPage({pageTitle='SO/ FACET — My SO/ COINS',result
     <main ref={page} className={"page text-layer"+(leaving||confirmation&&!showConfirmation?" claim-copy-leaving":"")}>
       <ClaimArtwork />
       {!confirmation && (onBack || onClose) && <div className="claim-navigation">
-        {onBack && <button className="claim-back" type="button" onClick={onBack} disabled={working}>← Back</button>}
-        {onClose && <button type="button" className="auth-flow-close" aria-label="Close account form" onClick={onClose}>×</button>}
+        {onBack && <button className="claim-back" type="button" data-analytics-control="claim_back" onClick={onBack} disabled={working}>← Back</button>}
+        {onClose && <button type="button" className="auth-flow-close" data-analytics-control="claim_close" aria-label="Close account form" onClick={onClose}>×</button>}
       </div>}
       <header className="brand"><span className="wordmark">{showConfirmation?'SO/ SAVED':result?'MEMBERSHIP':'THE SO/ COLLECTIVE'}</span></header>
       <section aria-label={showConfirmation?"Your saved SO/ COINS":detailsStep?"Confirm your details":"Claim your reward — OTP verification"} className={"content"+(showConfirmation?" claim-confirmation":detailsStep?" claim-details":"")} inert={leaving||confirmation&&!showConfirmation?true:undefined}>
         {showConfirmation?confirmation:detailsStep?<>
           <h1 ref={detailsHeading} className="claim-invitation" tabIndex={-1}>Confirm your details</h1>
-          <form className="claim-form" onSubmit={saveDetails}>
+          <form className="claim-form" id="claim-details-form" onSubmit={saveDetails}>
             <label><span className="sr-only">Email address</span><input autoComplete="email" className="field" name="email" placeholder="Email address" type="email" required maxLength={254} defaultValue={email} disabled={sending}/></label>
             <div className="claim-consents">
               <label className="consent"><input name="terms" type="checkbox" required disabled={sending}/><span>I'm 18 or older and I agree to the <a href={termsUrl||'/terms'} target="_blank" rel="noopener">Terms and Conditions</a> and <a href={privacyUrl||'/privacy'} target="_blank" rel="noopener">Privacy Policy</a>.</span></label>
               <label className="consent"><input name="updates" type="checkbox" disabled={sending}/><span>Keep me posted on new collections, drops and what's next.</span></label>
             </div>
-            <div className="buttons"><button className="btn" type="submit" disabled={sending}><span>{sending?'PLEASE WAIT…':'SAVE MY SO/ COINS'}</span><Arrow /></button></div>
+            <div className="buttons"><button className="btn" type="submit" data-analytics-control="claim_save_details" disabled={sending}><span>{sending?'PLEASE WAIT…':'SAVE MY SO/ COINS'}</span><Arrow /></button></div>
             <p className="feedback" role="status">{status || message}</p>
           </form>
         </>:<>
@@ -115,11 +116,11 @@ export default function ClaimPage({pageTitle='SO/ FACET — My SO/ COINS',result
           </div>
           <div className="claim-otp-row">
             <label className="otp-field"><span className="sr-only">Six-digit confirmation code</span><input id="final-otp" autoComplete="one-time-code" className="field" inputMode="numeric" maxLength={6} name="otp" placeholder="OTP" value={otp} onChange={event=>setOtp(event.target.value.replace(/\D/g,''))} disabled={working||changed} /></label>
-            <button className="btn claim-send-otp" type="button" disabled={sending||resendSeconds>0} onClick={sendOtp} aria-describedby={twoStep?"claim-otp-consent":undefined}>{resendSeconds>0?'Resend in '+resendSeconds+'s':changed?'Send OTP':'Resend OTP'}</button>
+            <button className="btn claim-send-otp" type="button" data-analytics-control={changed?"otp_request":"otp_resend"} disabled={sending||resendSeconds>0} onClick={sendOtp} aria-describedby={twoStep?"claim-otp-consent":undefined}>{resendSeconds>0?'Resend in '+resendSeconds+'s':changed?'Send OTP':'Resend OTP'}</button>
           </div>
           {twoStep&&<p id="claim-otp-consent" className="help">By requesting an OTP, you agree to receive a verification code by WhatsApp or SMS.</p>}
-          <p className="signin">Already saved your <span className="inline-coins">SO/ COINS</span>? {onSignIn&&<button className="claim-sign-in" type="button" disabled={working} onClick={onSignIn}>Sign in</button>}</p>
-          <div className="buttons"><button className="btn" type="submit" disabled={sending||changed}><span>{sending?'PLEASE WAIT…':'SAVE MY SO/ COINS'}</span><Arrow /></button></div>
+          <p className="signin">Already saved your <span className="inline-coins">SO/ COINS</span>? {onSignIn&&<button className="claim-sign-in" type="button" data-analytics-control="claim_signin" disabled={working} onClick={onSignIn}>Sign in</button>}</p>
+          <div className="buttons"><button className="btn" type="submit" data-analytics-control="claim_verify" disabled={sending||changed}><span>{sending?'PLEASE WAIT…':'SAVE MY SO/ COINS'}</span><Arrow /></button></div>
           <p aria-live="polite" className="feedback" id="feedback" role="status">{status || message}</p>
         </form>
         </>}

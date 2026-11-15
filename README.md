@@ -10,7 +10,7 @@ I’ve applied the November copy updates across the landing journey, pinball, sc
 
 I’ve kept the current artwork and responsive layouts and applied Harsh’s typography and desktop cursor. Home shows Instagram and LinkedIn as icons with their existing links. The extra “Click/Tap to reveal” captions and background hover tooltips have been removed; the background interactions still work. The score screen opens the save form, and the saved screen includes a route to My SO/ COINS.
 
-Cookie preferences and Cookie settings are available across the site. Optional analytics and advertising remain off; I’m leaving tracking integrations for later. The supplied React 404 page handles unknown page addresses with an HTTP 404 response, the original animated artwork and mesh, and links back to Home and Pinball. Build it with `npm run build:404`; it is also included in the full site build.
+Cookie preferences and Cookie settings are available across the site. Google Analytics 4 loads only when configured on the server and after the visitor allows Analytics. Advertising and session recording remain off. The supplied React 404 page handles unknown page addresses with an HTTP 404 response, the original animated artwork and mesh, and links back to Home and Pinball. Build it with `npm run build:404`; it is also included in the full site build.
 
 The signed-in My SO/ COINS page includes a leaderboard-name field connected to the existing profile update request. Live verification still needs the rewards service configuration. The review images use sample account and score data, and the browser checks do not certify performance on every physical phone.
 
@@ -31,6 +31,30 @@ npm start
 Open `http://127.0.0.1:8766/` for the default version 3 video entrance. `/entrance-3d` is an alias, `/game` opens the game, and `/video` opens the retained video comparison. Both entrance paths reuse the approved story copy, fonts, navigation and game loader. Production pages do not display developer inspection panels.
 
 Each screen now has its own public URL, defined in `site-routes.js`. This includes `/game`, `/leaderboard`, `/reward`, `/claim`, `/join`, `/sign-in`, `/verify`, `/coins-saved`, `/notify`, `/confirmation`, `/about`, `/how-coins-work`, `/contact`, `/terms`, `/privacy` and `/404`. `/my-coins` and `/account.html` redirect to `/join`; the old `/exit`, `/launch` and `/launching-soon.html` paths redirect to `/notify`. In-game pages keep the game in memory while updating the outer address and browser history. Reward and saved-confirmation refreshes reuse tab-only presentation context; OTP verification still requires a live challenge and all rewards remain server-verified.
+
+### Google Analytics
+
+Set `ANALYTICS_ENABLED=true`, the real `GA4_MEASUREMENT_ID=G-…`, and `ANALYTICS_ENVIRONMENT=production` in Railway. Keep Analytics disabled in development. `/api/analytics-config` returns public identifiers only; changing them requires a server restart but no rebuild. Railway's commit SHA identifies the release automatically, with `APP_RELEASE` as a fallback. Fixture IDs such as `G-TEST123` belong only in isolated tests.
+
+The controller is inserted once by the shared page shell. It fetches configuration and loads Google only after Analytics consent. Rejecting optional cookies makes no Analytics requests. Withdrawing consent drops pending events, disables Google collection and clears GA cookies. A revoked consent generation cannot initialize a tag after an outstanding module import completes. Advertising storage, personalization and Google signals stay disabled.
+
+Pageviews are sent manually for distinct public paths, including routes inside the game. Disable Enhanced measurement's history-based pageviews and automatic form interactions in the GA4 web stream so they do not duplicate the app's events or collect uncontrolled form metadata. Google documents the separate history setting in its [manual pageview guide](https://developers.google.com/analytics/devguides/collection/ga4/views). Page metadata is sanitized at global, configuration and event scope; query strings, fragments and unknown private paths are excluded. The Google script also uses `no-referrer` for its own request.
+
+| Events | Meaning |
+| --- | --- |
+| `page_view`, `page_leave`, `navigation_click`, `ui_click` | Public page and control activity; cookie-dialog interactions are excluded |
+| `game_ready`, `game_started`, `game_finished`, `game_paused`, `game_resumed`, `tutorial_completed` | Game lifecycle; embedded readiness has one owner after the cards finish |
+| `score_verified`, `reward_saved`, `reward_discarded` | Verified score, server-confirmed saving, and an explicit unsaved-reward exit |
+| `otp_requested`, `otp_verified`, `login`, `sign_up`, `profile_updated`, `logout`, `first_cuts_registered` | Confirmed API outcomes, never successful conversions for failed OTPs or incomplete responses |
+| `form_submit`, `form_invalid`, `api_request`, `client_error`, `share` | Bounded diagnostics and sharing; no input values, request bodies or contact addresses |
+
+`game_finished` is a client result; `score_verified` is server verified. Event counts are not a financial ledger. Repeated successful idempotent reward requests can produce repeated `reward_saved` events. Names, email addresses, phone numbers, OTPs, game IDs and authentication tokens are excluded from provider event properties. New events must be added to the explicit allowed-property schema in `analytics-source/runtime.js`.
+
+The launch can remain anonymous by leaving `ANALYTICS_ID_SECRET` unset. Optional signed-in correlation requires a separate random secret of at least 32 characters; the server then returns an HMAC identifier only for a verified account session. It never returns the customer ID or authentication credentials. Anonymous identity checks create no player or cookie. Sign-out and expired sessions clear analytics identity. Same-origin embedded screens delegate to the outer controller instead of loading a second SDK or sending duplicate pageviews.
+
+The existing draft's PostHog adapter remains optional and unconfigured for this GA4 setup. Leave `POSTHOG_PUBLIC_KEY` empty and `POSTHOG_SESSION_REPLAY=false`; no PostHog account, event capture or recording is enabled by this release. Recording defaults off and requires the literal `POSTHOG_SESSION_REPLAY=true` as well as a configured provider and Analytics consent.
+
+Run `npm run build` to refresh generated pages and `npm run test:analytics` for consent, sanitation, identity and API outcome tests. `scripts/browser-analytics.mjs` uses isolated rewards and analytics fixtures; it cannot certify receipt in a live GA property. Blocked provider scripts must leave the game usable. After deployment, verify real tag requests and GA Realtime with the actual property, then withdraw Analytics consent and check collection stops.
 
 ### Entrance variants
 

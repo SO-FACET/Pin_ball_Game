@@ -116,6 +116,12 @@ export function createMembershipApi({ getStore, commit, phone, publicPlayer, pro
       return { signedIn, expiresIn: signedIn ? Math.max(0, current.expiresAt - now()) : null };
     }
     if (path === '/api/account') return readAccount(id);
+    if (path === '/api/analytics-identity') {
+      const saved = getStore().players[id]?.profile;
+      if (!saved?.customerId || !saved.phone) requireVerification();
+      session(id, saved.customerId, phone(saved.phone));
+      return { customerId: saved.customerId };
+    }
     if (path === '/api/account/signout') {
       sessions.delete(id);
       for (const map of [challenges, proofs]) for (const [key, value] of map) if (value.player === id) map.delete(key);

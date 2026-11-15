@@ -16,15 +16,24 @@
     clearTimeout(expires);
     const controller = new AbortController();
     pending = controller;
+    const started = Date.now();
+    let status = 0;
     try {
       const response = await fetch('/api/account/session', {
         credentials: 'same-origin',
         cache: 'no-store',
         signal: controller.signal,
       });
+      status = response.status;
       if (!response.ok) throw Error('Session check failed');
       const session = await response.json();
       if (controller.signal.aborted) return;
+      if (typeof session.signedIn !== 'boolean') throw Error('Invalid session response');
+      window.sofacetAnalytics?.track('api_request', {
+        endpoint: '/api/account/session', status, duration_ms: Date.now() - started, outcome: 'success',
+      });
+      if (session.signedIn) void window.sofacetAnalytics?.refreshIdentity();
+      else window.sofacetAnalytics?.resetIdentity();
       root.toggleAttribute('data-signed-out', session.signedIn === false);
       root.toggleAttribute('data-signed-in', session.signedIn === true);
       if (session.signedIn && Number.isFinite(session.expiresIn)) {
@@ -32,6 +41,10 @@
       }
     } catch {
       if (!controller.signal.aborted) {
+        if (status === 401) window.sofacetAnalytics?.resetIdentity();
+        window.sofacetAnalytics?.track('api_request', {
+          endpoint: '/api/account/session', status, duration_ms: Date.now() - started, outcome: 'failure',
+        });
         root.removeAttribute('data-signed-out');
         root.removeAttribute('data-signed-in');
       }

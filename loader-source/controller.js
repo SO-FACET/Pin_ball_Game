@@ -94,6 +94,7 @@ export function installGameLoader(renderCards) {
   const stage=document.getElementById('stage');if(stage){stage.inert=false;stage.dataset.ready='true';stage.setAttribute('aria-busy','false')}
   blocked=[];root.dataset.state='leaving';
   root.dispatchEvent(new CustomEvent('sofacet:game-loader-ready'));
+  if(!parentOwnsCards)window.sofacetAnalytics?.track('game_ready');
   fade=setTimeout(()=>{root.hidden=true;document.body.removeAttribute('data-game-loading');paint();},motion.matches?0:400);
  }
  function fail(reason,phase='module'){
@@ -101,6 +102,8 @@ export function installGameLoader(renderCards) {
   const message=String(reason?.message||reason||'Unknown startup failure');
   const code=/memory|allocation|array buffer|out of bounds/i.test(message)?'memory':/webgl|context lost|gpu/i.test(message)?'graphics':/wasm|webassembly|unreachable/i.test(message)?'wasm':/fetch|network|load|asset|http/i.test(message)?'asset':'runtime';
   console.error('[SOFACET game startup]',phase,code,reason);root.dataset.errorCode=code;root.dataset.errorPhase=phase;
+  window.sofacetAnalytics?.track('game_load_failed',{phase,code});
+  window.sofacetAnalytics?.captureError(new Error('Game startup failed: '+phase+' '+code),{source:'game_loader'});
   if(gamePage)try{void fetch('/api/game-load-failure',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'omit',keepalive:true,body:JSON.stringify({phase,code,embedded:parent!==window})}).catch(()=>{})}catch{}
   if(root.hidden)show();clearTimeout(fade);failed=true;cleanup();active=false;cards.hidden=true;progress.hidden=true;paint();error.hidden=false;root.dataset.state='error';document.getElementById('stage')?.setAttribute('aria-busy','false');
  }

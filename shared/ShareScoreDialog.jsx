@@ -1,5 +1,6 @@
 import React,{useId,useRef,useState} from 'react';
 import './share-score.css';
+import {track} from './analytics.js';
 
 const gameUrl='https://sofacet.com/game';
 const number=new Intl.NumberFormat('en-IN');
@@ -33,17 +34,18 @@ export default function ShareScoreDialog({score,dialogRef,onClose,sharePoints=fa
    try{success=document.execCommand('copy')}catch{}field.remove();
   }
   setCopied(success);setManualCopy(!success);setStatus(success?`Your ${sharePoints?'points':'score'} and link are copied.`:'Automatic copying is unavailable. You can copy the text below.');
+  if(success)track('share',{method:'clipboard'});
   if(!success)requestAnimationFrame(()=>{manual.current?.focus();manual.current?.select()});
  }
  return <dialog className="score-share-dialog" ref={dialogRef} aria-labelledby={titleId} onCancel={event=>{if(editing){event.preventDefault();finishEdit(false)}else{event.preventDefault();close()}}} onKeyDown={event=>{if(editing&&event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();finishEdit(true)}if(event.key==='Escape')event.stopPropagation()}}>
-  <div className="score-share-header"><h2 id={titleId}>Share your {sharePoints?'points':'score'}</h2><button className="score-share-close" type="button" aria-label="Close share panel" onClick={close}><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"><path d="m5 5 14 14M19 5 5 19"/></svg></button></div>
+  <div className="score-share-header"><h2 id={titleId}>Share your {sharePoints?'points':'score'}</h2><button className="score-share-close" type="button" data-analytics-control="share_close" aria-label="Close share panel" onClick={close}><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"><path d="m5 5 14 14M19 5 5 19"/></svg></button></div>
   <div className="score-share-total" aria-label={`${number.format(score)} SO/ COINS`}><span>{number.format(score)}</span><small>SO/ COINS</small></div>
   <div className="score-share-preview">
    {editing?<><label className="score-share-sr" htmlFor={editorId}>Your share message</label><textarea id={editorId} value={draft} maxLength={2000} rows={3} onChange={event=>setDraft(event.target.value)}/></>:<p>{message.split('SO/ FACET').map((part,index)=><React.Fragment key={index}>{index>0&&<span className="score-share-wordmark">SO/ FACET</span>}{part}</React.Fragment>)}</p>}
    <div className="score-share-meta"><span>sofacet.com/game</span><span>{editing&&<button type="button" onClick={()=>finishEdit(false)}>Cancel</button>}<button type="button" onClick={()=>editing?finishEdit(true):(setDraft(message),setEditing(true),setStatus(''))}>{editing?'Save message':'Edit message'}</button></span></div>
   </div>
-  <div className="score-share-destinations" role="group" aria-label="Share destinations">{icons.map(service=><a key={service} href={destinations[service]} target="_blank" rel="noopener noreferrer" aria-label={`Share via ${service==='x'?'X':service==='gmail'?'Gmail':service[0].toUpperCase()+service.slice(1)}`} onClick={event=>{if(!currentMessage){event.preventDefault();setStatus('Write a message before sharing.')}else if(editing){setMessage(currentMessage);setEditing(false)}}}><span><img src={`/assets/share-icons/${service}.svg`} alt=""/></span>{service==='x'?'X':service[0].toUpperCase()+service.slice(1)}</a>)}</div>
-  <button className="score-share-copy" type="button" onClick={()=>void copy()}><span>{copied?'Copied':`Copy ${sharePoints?'points':'score'} & link`}</span><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><rect x="8" y="8" width="12" height="12" rx="1"/><path d="M15 8V4H4v11h4"/></svg></button>
+  <div className="score-share-destinations" role="group" aria-label="Share destinations">{icons.map(service=><a key={service} data-analytics-control={"share_"+service} href={destinations[service]} target="_blank" rel="noopener noreferrer" aria-label={`Share via ${service==='x'?'X':service==='gmail'?'Gmail':service[0].toUpperCase()+service.slice(1)}`} onClick={event=>{if(!currentMessage){event.preventDefault();setStatus('Write a message before sharing.')}else{track('share',{method:service});if(editing){setMessage(currentMessage);setEditing(false)}}}}><span><img src={`/assets/share-icons/${service}.svg`} alt=""/></span>{service==='x'?'X':service[0].toUpperCase()+service.slice(1)}</a>)}</div>
+  <button className="score-share-copy" type="button" data-analytics-control="share_clipboard" onClick={()=>void copy()}><span>{copied?'Copied':`Copy ${sharePoints?'points':'score'} & link`}</span><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><rect x="8" y="8" width="12" height="12" rx="1"/><path d="M15 8V4H4v11h4"/></svg></button>
   <p className="score-share-status" role="status" aria-live="polite">{status}</p>
   {manualCopy&&<div className="score-share-manual"><label htmlFor={manualId}>Select and copy your {sharePoints?'points':'score'} and link:</label><textarea id={manualId} ref={manual} readOnly rows={4} value={shareText}/></div>}
  </dialog>
