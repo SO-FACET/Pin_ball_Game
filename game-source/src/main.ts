@@ -305,7 +305,8 @@ async function restoreScreenRoute(){
  }else rewards.dialog.close();
 }
 window.top!.addEventListener('popstate',restoreScreenRoute);
-window.addEventListener('pageshow',()=>{previousUi=[];sync()});
+// The lifecycle event can arrive before asynchronous physics startup finishes.
+window.addEventListener('pageshow',()=>{previousUi=[];if(loaded)sync()});
 window.addEventListener('pagehide',event=>{if(!event.persisted)window.top!.removeEventListener('popstate',restoreScreenRoute)});
 void restoreScreenRoute();
 if(location.hash==='#profile')location.replace('/join?nav=game');
