@@ -122,10 +122,35 @@ test('handoff waits for both the table and the three cards, in either order',asy
   assert.equal(view.stage.inert,true);assert.equal(view.renders.at(-1).active,true);assert.equal(view.root.hidden,false);
   if(reduced)view.finishCards();else view.api.ready();
   assert.equal(handoffs,0);assert.equal(view.root.hidden,false);assert.equal(view.stage.inert,true);
-  assert.equal(view.renders.at(-1).element.hidden,false,'The final card stays visible while the table loads');
+  assert.equal(view.renders.at(-1).element.hidden,reduced,'Finishing the cards reveals the wait for the table');
   if(reduced)view.api.ready();else view.finishCards();
   view.api.ready();view.finishCards();assert.equal(handoffs,1);assert.equal(view.stage.dataset.ready,'true');assert.equal(view.stage.inert,false);assert.equal(view.root.dataset.state,'leaving');view.flushFade();assert.equal(view.root.hidden,true);assert.equal(view.renders.at(-1).active,false);
  }
+});
+test('finishing the cards exposes live progress until the table is ready',async()=>{
+ for(const managed of [false,true]){
+  const view=loader({managed});if(managed)view.api.show({story:true});
+  await Promise.resolve();
+  view.api.progress(42);
+  view.finishCards();
+  assert.equal(view.renders.at(-1).element.hidden,true,'The finished deck no longer invites swipes');
+  assert.equal(view.renders.at(-1).active,false);
+  assert.equal(view.root.dataset.loader,'progress');
+  assert.equal(view.progress.hidden,false,'The wait must remain visible after the last swipe');
+  assert.equal(view.progress['aria-valuenow'],'42','Keep the progress already reported by the game');
+  assert.equal(view.root.hidden,false);assert.equal(view.stage.inert,true);
+  view.api.progress(78);assert.equal(view.progress['aria-valuenow'],'78');
+  view.api.ready();view.flushFade();
+  assert.equal(view.progress['aria-valuenow'],'100');
+  assert.equal(view.root.hidden,true);assert.equal(view.stage.inert,false);
+ }
+});
+test('a game failure after the last card replaces progress with retry',async()=>{
+ const view=loader();await Promise.resolve();view.finishCards();
+ assert.equal(view.progress.hidden,false);
+ view.api.fail(Error('Game asset unavailable'));
+ assert.equal(view.progress.hidden,true);assert.equal(view.error.hidden,false);
+ view.api.ready();view.flushFade();assert.equal(view.root.hidden,false);
 });
 test('slow loads retain the cards; cancelling and reshowing preserves the table readiness guard',()=>{
  const view=loader();for(const timer of view.timers.values())if(timer.duration===20000)timer.callback();assert.match(view.status.firstChild.textContent,/Still preparing/);assert.equal(view.stage.inert,true);assert.equal(view.root.hidden,false);
