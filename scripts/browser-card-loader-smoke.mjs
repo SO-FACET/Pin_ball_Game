@@ -67,8 +67,12 @@ try{await withRewardsSite(async({origin})=>{
    await page.evaluate(()=>window.sofacetGameLoader.setActive(false));assert.equal(await page.locator('.game-loader-cards .floating').evaluate(e=>getComputedStyle(e).animationPlayState),'paused');
    await page.evaluate(()=>window.sofacetGameLoader.setActive(true));assert.equal(await page.locator('.game-loader-cards .floating').evaluate(e=>getComputedStyle(e).animationPlayState),'running');
    await (mobile?swipe(page,90):page.locator('.game-loader-cards .deck').press('ArrowRight'));
-   assert.equal(await page.locator('#game-loader-cards-root').isVisible(),true,'The final card stays visible while the table loads');
+   await page.locator('#game-loader-cards-root').waitFor({state:'hidden'});
    assert.equal(await page.locator('#game-loading-screen').isVisible(),true,'The final swipe waits for the actual table if it is still loading');
+   await page.getByRole('progressbar',{name:'Loading game'}).waitFor({state:'visible'});
+   await page.evaluate(()=>window.sofacetGameLoader.progress(64));
+   assert.equal(await page.getByRole('progressbar',{name:'Loading game'}).getAttribute('aria-valuenow'),'64','The final swipe exposes actual loading progress');
+   await capture(page,width+'-after-third-swipe');
    if(engine==='chromium')release();else await page.evaluate(()=>window.sofacetGameLoader.ready());
    await page.waitForFunction(()=>document.querySelector('#stage').dataset.ready==='true'&&document.querySelector('#game-loading-screen').hidden&&!document.body.hasAttribute('data-game-loading'),null,{timeout:90000});
    if(engine==='chromium')await page.locator('#table-intro').waitFor();

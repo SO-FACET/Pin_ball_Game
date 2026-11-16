@@ -34,6 +34,9 @@ export function installGameLoader(renderCards) {
  function completeCards(){
   if(!active||cardsComplete)return;
   cardsComplete=true;
+  cards.hidden=true;
+  paint();
+  if(!tableReady){root.dataset.loader='progress';progress.hidden=false;}
   handoff();
  }
  function loadCards(){
