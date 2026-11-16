@@ -7,19 +7,20 @@ import type {CompletedGameResult} from './post-game-rewards';
 import {setScreenRoute} from '../../site-routes.js';
 import {mountScoreMesh} from './score-mesh.js';
 import {rewardFromPoints} from '../../shared/reward-value.js';
-import {track,apiOutcome,apiFailure} from '../../shared/analytics.js';
+import {track,apiStarted,apiOutcome,apiFailure} from '../../shared/analytics.js';
 export type Entry={rank:number|null;display_name:string;points:number;is_you:boolean};
 type Board={entries:Entry[];me:Entry|null;mode:'game'|'rewards'};
 export type Player={display_name:string;member:boolean;best_score:number|null};
 
 async function request<T>(url:string,body?:unknown,timeout=30000):Promise<T>{
  const started=Date.now();
+ const analyticsContext=apiStarted(url,body);
  try{
  const response=await fetch(url,{method:body===undefined?'GET':'POST',headers:body===undefined?{}:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(timeout)});
  const data=await response.json().catch(()=>({message:'The leaderboard service is unavailable.'}));
  if(!response.ok)throw Object.assign(new Error(data.message||'Please try again in a moment.'),{code:data.code,status:response.status});
- apiOutcome(url,response.status,data,Date.now()-started);return data as T;
- }catch(error){apiFailure(url,error,Date.now()-started);throw error}
+ apiOutcome(url,response.status,data,Date.now()-started,analyticsContext);return data as T;
+ }catch(error){apiFailure(url,error,Date.now()-started,analyticsContext);throw error}
 }
 
 // Keep the current player's real rank; never renumber their pinned row as tenth.
@@ -53,7 +54,7 @@ export function connectLeaderboard(onClose:()=>void,onReplay:()=>void,onVerified
   frameMiddle.setAttribute('height',String(height-655));
   frameBottom.setAttribute('y',String(height-321));
  }).observe(table);
- type Run={id?:string;seed?:number;inputs:InputRun[];ticks:number;ended:boolean;submitted:boolean;previousBest?:number|null;score?:number;rewardSaved?:boolean;error?:string;submission?:Promise<void>};
+ type Run={id?:string;seed?:number;inputs:InputRun[];ticks:number;ended:boolean;submitted:boolean;previousBest?:number|null;score?:number;rewardSaved?:boolean;error?:string;submission?:Promise<void>;analyticsContext?:{run_sequence?:number}};
  let player:Player|null=null,run:Run={inputs:[],ticks:0,ended:false,submitted:false},revision=0,playerRevision=0;
  const refreshPlayer=async()=>{const current=++playerRevision;try{const next=await request<Player>('/api/player');if(typeof next.member!=='boolean')throw Error('Invalid player');if(current!==playerRevision)return;player=next;onBest(player.best_score);onPlayer(player)}catch{if(current===playerRevision){player=null;onPlayer(null)}}};
  const ready=refreshPlayer();
@@ -77,7 +78,7 @@ export function connectLeaderboard(onClose:()=>void,onReplay:()=>void,onVerified
   if(target.error||!target.id)throw new Error(target.error||'This game could not connect for verification. Please play again with a connection.');
   target.submission??=request<{score:number;best_score:number}>('/api/games/'+target.id+'/finish',{version:REPLAY_VERSION,inputs:target.inputs},75000).then(result=>{
    if(!Number.isSafeInteger(result.score)||result.score<0||!Number.isSafeInteger(result.best_score)||result.best_score<result.score)throw Error('Your score could not be verified. Please try again.');
-   target.submitted=true;target.score=result.score;track('score_verified',{points:result.score,best_points:result.best_score});onBest(result.best_score);if(target===run){document.getElementById('leaderboard-save')!.hidden=result.score<10;if(player)player={...player,best_score:result.best_score};summary.textContent='This run: '+formatPoints(result.score);window.dispatchEvent(new Event('sofacet:leaderboard-updated'));onVerified(result.score,result.best_score)}
+   target.submitted=true;target.score=result.score;track('score_verified',{...target.analyticsContext,points:result.score,best_points:result.best_score});onBest(result.best_score);if(target===run){document.getElementById('leaderboard-save')!.hidden=result.score<10;if(player)player={...player,best_score:result.best_score};summary.textContent='This run: '+formatPoints(result.score);window.dispatchEvent(new Event('sofacet:leaderboard-updated'));onVerified(result.score,result.best_score)}
   }).catch(error=>{target.submission=undefined;throw error});
   await target.submission;
  }
@@ -86,6 +87,7 @@ export function connectLeaderboard(onClose:()=>void,onReplay:()=>void,onVerified
    if(!player)await refreshPlayer();
    if(current!==revision)return;
    if(target.ended&&!target.submitted)await submit(target);
+   if(current!==revision||target!==run)return;
    let rewardError='';
    if(target.ended&&target.submitted&&player?.member&&target.id&&!target.rewardSaved){
     try{const result=await request<{pointsSaved:boolean}>('/api/membership/rewards',{gameId:target.id});if(result.pointsSaved!==true)throw Error('SO/ COINS have not been saved yet.');target.rewardSaved=true}
@@ -105,6 +107,7 @@ export function connectLeaderboard(onClose:()=>void,onReplay:()=>void,onVerified
  return {
   dialog,ready,
   get gameId(){return run.id},
+  setAnalyticsContext(context:{run_sequence?:number}){run.analyticsContext=context},
   finish(){run.ended=true;return submit(run)},
   async start(){const next:Run={inputs:[],ticks:0,ended:false,submitted:false,previousBest:player?.member?player.best_score:null};run=next;try{const result=await request<{id:string;seed:number;version:number}>('/api/games/start',{},10000);if(result.version!==REPLAY_VERSION||!Number.isInteger(result.seed))throw new Error('Please refresh the game to start a verified run.');next.id=result.id;next.seed=result.seed}catch(error){next.error=error instanceof Error?error.message:'This run is offline and cannot enter the leaderboard.'}return next.seed??crypto.getRandomValues(new Uint32Array(1))[0]},
   record(input:Input){if(run.error||run.ended)return;const bits=packInput(input),last=run.inputs.at(-1);run.ticks++;if(last&&last[0]===bits)last[1]++;else run.inputs.push([bits,1]);if(run.ticks>MAX_GAME_TICKS||run.inputs.length>MAX_INPUT_RUNS){run.error='This game exceeded the verification limit. Please play a shorter game to enter the leaderboard.';run.inputs=[]}},

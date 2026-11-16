@@ -1,5 +1,5 @@
 import './style.css';
-import {track,captureError,setGameActivity} from '../../shared/analytics.js';
+import {track,captureError,setGameActivity,gameContext} from '../../shared/analytics.js';
 import '../../assets/site-sound.css';
 import {TableView} from './renderer';
 import {PinballPhysics,DT} from './physics';
@@ -82,6 +82,7 @@ const registration=$<HTMLDialogElement>('registration-dialog');
 let resumeAfterMembership=false,resumeAfterLeaderboard=false;
 let membership:ReturnType<typeof connectMembership>|undefined;
 function saveCoins(pending?:CompletedGameResult,verify=false,opener?:HTMLElement){
+ if(pending)track('reward_save_started',{method:'button'});
  if(membership?.isMember()&&!verify){window.top!.location.assign('/sign-in');return}
  void membership?.open(opener,pending,verify);
 }
@@ -174,7 +175,7 @@ const applyInspectionLayout=()=>{if(!inspecting){viewport.style.width='';viewpor
 let completedRunRecorded=false,analyticsGameActivity:boolean|undefined;
 let previousUi:readonly unknown[]=[],previousCharge=-1;
 function syncGameActivity(){
- const active=loaded&&gamePageVisible&&parentVisible&&!document.hidden&&physics.active&&physics.state!=='finished'&&!physics.paused&&!starting&&!cookieSettingsOpen&&!tutorial?.active&&!inspecting&&!infoOpen&&menu.hidden&&navToggle.getAttribute('aria-expanded')!=='true'&&!registration.open&&!rewards.dialog.open&&!leaderboard.dialog.open;
+ const active=loaded&&gamePageVisible&&parentVisible&&!document.hidden&&physics.active&&physics.launches>0&&physics.state!=='finished'&&!physics.paused&&!starting&&!cookieSettingsOpen&&!tutorial?.active&&!inspecting&&!infoOpen&&menu.hidden&&navToggle.getAttribute('aria-expanded')!=='true'&&!registration.open&&!rewards.dialog.open&&!leaderboard.dialog.open;
  if(active===analyticsGameActivity)return;
  analyticsGameActivity=active;setGameActivity(active);
 }
@@ -244,7 +245,7 @@ function updateSoundSettings(){$('volume-value').textContent=Math.round(sound.vo
 $('sound').onclick=()=>{sound.setMuted(!sound.muted);siteSound.setEnabled(!sound.muted);updateSoundSettings()};
 $<HTMLInputElement>('volume').oninput=event=>{sound.setVolume(Number((event.target as HTMLInputElement).value));sound.unlock();updateSoundSettings()};
 async function beginGame(){if(!loaded||starting)return;siteSound.handoff();sound.unlock();starting=true;if(inspecting)toggleInspection();clearKeys();holdCharge=false;physics.setPaused(true);sync();
- try{const seed=await leaderboard.start(),fresh=await PinballPhysics.create(view.manifest,physicsAssets.vertices,physicsAssets.indices,physicsAssets.obstacles);const old=physics;physics=fresh;old.dispose();bindFeedback();completedRunRecorded=false;physics.start(seed);track('game_started',{online:!!leaderboard.gameId});rewards.clear();if(!phone)scorecard.showScore(true);view.resetFeedback();accumulator=0;lastFrame=0;view.setReference(0);view.resize();canvas.focus();sound.setOutputActive(true);sound.play('start');sound.setMusic(true,1.5)}
+ try{const seed=await leaderboard.start(),fresh=await PinballPhysics.create(view.manifest,physicsAssets.vertices,physicsAssets.indices,physicsAssets.obstacles);const old=physics;physics=fresh;old.dispose();bindFeedback();completedRunRecorded=false;physics.start(seed);track('game_started',{online:!!leaderboard.gameId});leaderboard.setAnalyticsContext(gameContext());rewards.clear();if(!phone)scorecard.showScore(true);view.resetFeedback();accumulator=0;lastFrame=0;view.setReference(0);view.resize();canvas.focus();sound.setOutputActive(true);sound.play('start');sound.setMusic(true,1.5)}
  catch(error){captureError(error,{source:'game_start'});loaded=false;$('error').hidden=false;$('error-detail').textContent=error instanceof Error?error.message:String(error);$('action').hidden=true}
  finally{starting=false;if(loaded)sync();else siteSound.setActive(true)}
 }
@@ -293,7 +294,7 @@ function sampleGameplayPerformance(now:number){
 function frame(now:number){animationFrame=0;if(!loaded||!parentVisible||document.hidden)return;const elapsed=lastFrame?now-lastFrame:0,delta=Math.min(elapsed/1000,.05);lastFrame=now;
  if(physics.active&&canTouch('paddle')&&navToggle.getAttribute('aria-expanded')!=='true')scorecard.advanceAutoFlip(elapsed);if(!cookieSettingsOpen&&!physics.paused&&!tutorial?.active)accumulator+=delta;else accumulator=0;
  while(accumulator>=DT){const controls=input(),launches=physics.launches;
-  if(physics.active&&!physics.paused&&physics.state!=='finished')leaderboard.record(controls);physics.tick(controls);if(physics.launches>launches)sound.play('launch',.5);accumulator-=DT}
+  if(physics.active&&!physics.paused&&physics.state!=='finished')leaderboard.record(controls);physics.tick(controls);if(physics.launches>launches){if(launches===0){track('game_play_started');syncGameActivity()}sound.play('launch',.5)}accumulator-=DT}
  const p=physics.pose();view.updateFeedback(physics.active&&!physics.paused&&!inspecting?delta:0);view.updateBall(p.position,p.rotation,p.ballVisible);for(const paddle of p.paddles)view.updatePaddle(paddle.id,paddle.angle);
  const ejecting=p.cave?.phase==='ejecting';if(ejecting&&!caveEjecting)sound.play('teleport');caveEjecting=ejecting;
  for(const target of p.targets)view.updateTarget(target.id,target.position);

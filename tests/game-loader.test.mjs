@@ -98,6 +98,15 @@ test('analytics records one readiness handoff for standalone or outer cards and 
  assert.equal(outer.analytics.filter(event=>event.name==='game_ready').length,1);
 });
 
+test('loading intent precedes readiness and a currently loading state can be observed when consent activates',()=>{
+ const standalone=loader({visited:true});standalone.api.ready();
+ assert.deepEqual(standalone.analytics.map(x=>x.name),['game_load_started','game_ready']);
+ const child=loader({embedded:true,parentOwnsCards:true,visited:true});child.api.ready();assert.deepEqual(child.analytics,[]);
+ const outer=loader({managed:true,visited:true});let enabled=false;outer.window.sofacetAnalytics.getStatus=()=>({enabled});outer.api.show();assert.deepEqual(outer.analytics,[]);
+ enabled=true;outer.window.dispatchEvent(new Event('sofacet:analytics-enabled'));outer.window.dispatchEvent(new Event('sofacet:analytics-enabled'));outer.api.ready();
+ assert.deepEqual(outer.analytics.map(x=>x.name),['game_load_started','game_ready']);
+});
+
 test('progress loading keeps retry errors and blocked storage cannot break the game',async()=>{
  const returning=loader({visited:true});returning.api.fail(Error('Asset unavailable'));
  assert.equal(returning.progress.hidden,true);assert.equal(returning.error.hidden,false);assert.equal(returning.root.dataset.state,'error');

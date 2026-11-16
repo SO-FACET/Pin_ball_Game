@@ -10,8 +10,8 @@ const part=(start,end)=>source.slice(source.indexOf(start),source.indexOf(end));
 function game(){
  const events=[],listeners={},documentListeners={},elements=new Map();
  const element=id=>{if(!elements.has(id))elements.set(id,{hidden:true,disabled:false,inert:false,textContent:'',style:{},dataset:{},classList:{toggle(){}},setAttribute(){},focus(){}});return elements.get(id)};
- const makePhysics=()=>({active:false,paused:false,state:'launcher',charge:0,lives:3,score:0,position:[0,0,0],
-  setPaused(value){this.paused=value},pose(){return {...this}},start(){this.active=true;this.paused=false;this.state='launcher'},dispose(){}});
+ const makePhysics=()=>({active:false,paused:false,state:'launcher',charge:0,lives:3,score:0,launches:0,position:[0,0,0],
+  setPaused(value){this.paused=value},pose(){return {...this}},start(){this.active=true;this.paused=false;this.state='launcher';this.launches=0},dispose(){}});
  const physics=makePhysics(),parent={},document={hidden:false,activeElement:null,documentElement:{dataset:{}},addEventListener:(name,fn)=>documentListeners[name]=fn};
  let navigationOpen=false,navigationReads=0,tutorialDone;
  const context={events,loaded:true,physics,starting:false,inspecting:false,infoOpen:false,parentVisible:true,gamePageVisible:true,cookieSettingsOpen:false,
@@ -21,11 +21,11 @@ function game(){
   addEventListener:(name,fn)=>listeners[name]=fn,cancelAnimationFrame(){},syncLoadingAnimation(){},requestGameFrame(){},restoreScreenRoute(){},
   $:element,chargeFill:element('charge'),chargeMeter:element('charge-meter'),mobileLives:element('lives'),lifeHearts:[],stage:element('stage'),settings:element('settings'),launchButton:element('launch'),
   menu:{hidden:true},navToggle:{getAttribute(){navigationReads++;return String(navigationOpen)}},registration:{open:false},
-  rewards:{dialog:{open:false,close(){this.open=false}},clear(){}},leaderboard:{dialog:{open:false},finish:()=>Promise.resolve(),start:async()=>1,gameId:'test'},
+  rewards:{dialog:{open:false,close(){this.open=false}},clear(){}},leaderboard:{dialog:{open:false},finish:()=>Promise.resolve(),start:async()=>1,setAnalyticsContext(value){this.analyticsContext=value},gameId:'test'},
   tutorial:{active:false,open(_mode,callback){this.active=true;tutorialDone=callback},cancelHold(){}},
   view:{scoreboard:{update:()=>false},resetPerformanceSampling(){},resetFeedback(){},setReference(){},resize(){},follow(){}},
   scorecard:{update(){},showScore(){}},touchInput:{matches:false},canTouch:()=>true,mobileView:()=>false,
-  setGameActivity:active=>events.push(['activity',active]),track:(name,properties)=>events.push([name,structuredClone(properties)]),
+  setGameActivity:active=>events.push(['activity',active]),track:(name,properties)=>events.push([name,structuredClone(properties)]),gameContext:()=>({run_sequence:1}),
   captureError:error=>{throw error},formatPoints:String,clearKeys(){},closeSettings(){},closeNavigation(){},toggleInspection(){},
   applyNavigationLayout(){},applyScoreboardLayout(){},syncPlaybackControls(){},showResult(){},showLeaderboard(){},bindFeedback(){},connectMembership:options=>options,
   sound:{unlock(){},setMusic(){},setOutputActive(){},play(){}},siteSound:{handoff(){},setMusic(){},setActive(){}},canvas:{focus(){}},
@@ -43,22 +43,29 @@ function game(){
   part('function pauseOnFocusLoss(){',"window.addEventListener('resize',"),
   part("window.addEventListener('pageshow',",'void restoreScreenRoute();')].join('\n');
  vm.runInNewContext(code,context);
+ // Exercise the production frame's launch edge, not a second implementation of
+ // its analytics calls. Physics itself is covered by simulation/replay tests.
+ const launchEdge=part('if(physics.launches>launches){','accumulator-=DT}');
  return {context,events,listeners,documentListeners,document,parent,physics,
+  launch(){vm.runInNewContext('var launches=physics.launches;physics.launches++;'+launchEdge,context)},
   navigation(value){navigationOpen=value;context.syncGameActivity()},get navigationReads(){return navigationReads},
   finishPractice(result='skip'){context.tutorial.active=false;tutorialDone(result)},
   cookie(value){document.documentElement.dataset.cookieSettingsOpen=String(value);listeners['sofacet:cookie-settings']()},
  };
 }
 
-test('real game UI publishes activity only after Play, across lives, and before its completed result',()=>{
+test('real game UI publishes activity only after first launch, across lives, and before its completed result',()=>{
  const f=game(),{context:c,events}=f;
  c.sync();assert.deepEqual(events,[['activity',false]],'the loaded table is not a played game');
- c.physics.active=true;c.sync();assert.deepEqual(events.at(-1),['activity',true]);
+ c.physics.active=true;c.sync();assert.deepEqual(events,[['activity',false]],'Play and idle launcher time are excluded');
+ f.launch();assert.deepEqual(events.slice(-2),[['game_play_started',undefined],['activity',true]]);
  const reads=f.navigationReads;
  for(let i=0;i<500;i++)c.sync();
  assert.equal(f.navigationReads,reads,'unchanged frame updates do not republish activity or reread the navigation gate');
  for(const state of ['charging','playing','draining','resetting','spring_return','launcher']){c.physics.state=state;c.sync()}
- assert.equal(events.length,2,'launcher and between-life animations belong to the same active run');
+ f.launch();
+ assert.equal(events.length,3,'launcher and between-life animations belong to the same active run');
+ assert.equal(events.filter(([name])=>name==='game_play_started').length,1,'a new life does not create another first-launch milestone');
  c.physics.state='finished';c.sync();
  assert.deepEqual(events.slice(-2),[['activity',false],['game_finished',{points:0}]],'the clock stops before final totals are recorded');
  c.physics.score=30;c.sync();c.sync();
@@ -66,7 +73,7 @@ test('real game UI publishes activity only after Play, across lives, and before 
 });
 
 test('overlapping pause, cookie and dialog blockers cannot resume game activity early',()=>{
- const f=game(),c=f.context;c.physics.active=true;c.sync();
+ const f=game(),c=f.context;c.physics.active=true;c.physics.launches=1;c.sync();
  c.setGamePaused(true);assert.deepEqual(f.events.at(-1),['activity',false]);
  f.cookie(true);c.setGamePaused(false);
  assert.deepEqual(f.events.filter(([name])=>name==='activity'),[['activity',true],['activity',false]],'closing the pause menu leaves cookie settings blocking play');
@@ -78,18 +85,20 @@ test('overlapping pause, cookie and dialog blockers cannot resume game activity 
  c.rewards.dialog.open=false;c.sync();assert.deepEqual(f.events.at(-1),['activity',true]);
 });
 
-test('a replay excludes asynchronous preparation and starts its clock after game_started',async()=>{
- const f=game(),c=f.context;c.physics.active=true;c.sync();
+test('a replay excludes asynchronous preparation and waits for its own first launch after game_started',async()=>{
+ const f=game(),c=f.context;c.physics.active=true;c.physics.launches=1;c.sync();
  let release;c.leaderboard.start=()=>new Promise(resolve=>release=resolve);
  const pending=c.beginGame();
  assert.deepEqual(f.events,[['activity',true],['activity',false]],'restart stops the old run before awaiting the start request');
  release(123);await pending;
- assert.deepEqual(f.events.slice(-2),[['game_started',{online:true}],['activity',true]],'new run reset precedes active time');
+ assert.deepEqual(f.events.slice(-2),[['activity',false],['game_started',{online:true}]],'new run resets without counting idle launcher time');
  assert.equal(c.physics.state,'launcher');assert.equal(c.physics.paused,false);
+ assert.equal(c.physics.launches,0);assert.deepEqual(c.leaderboard.analyticsContext,{run_sequence:1});
+ f.launch();assert.deepEqual(f.events.slice(-2),[['game_play_started',undefined],['activity',true]],'the replay owns a fresh first-launch edge');
 });
 
 test('practice pauses and restores an existing run without inventing a new game or bypassing another blocker',()=>{
- const f=game(),c=f.context;c.physics.active=true;c.sync();
+ const f=game(),c=f.context;c.physics.active=true;c.physics.launches=1;c.sync();
  c.openPractice('replay');assert.deepEqual(f.events.at(-1),['activity',false]);
  f.cookie(true);f.finishPractice();
  assert.deepEqual(f.events.at(-1),['tutorial_completed',{outcome:'skip'}]);
@@ -99,7 +108,7 @@ test('practice pauses and restores an existing run without inventing a new game 
 });
 
 test('membership and information overlays stop active play even when physics pause bypasses the public pause control',()=>{
- const f=game(),c=f.context;c.physics.active=true;c.sync();
+ const f=game(),c=f.context;c.physics.active=true;c.physics.launches=1;c.sync();
  c.membership.beforeOpen();assert.equal(c.physics.paused,true);assert.deepEqual(f.events.at(-1),['activity',false]);
  f.cookie(true);c.membership.afterClose(true,false);
  assert.equal(c.physics.paused,false);assert.deepEqual(f.events.filter(([name])=>name==='activity').at(-1),['activity',false]);
@@ -110,7 +119,7 @@ test('membership and information overlays stop active play even when physics pau
 });
 
 test('embedded visibility, backgrounding and BFCache stop activity without weakening message checks or the early pageshow guard',()=>{
- const f=game(),c=f.context;c.physics.active=true;c.sync();
+ const f=game(),c=f.context;c.physics.active=true;c.physics.launches=1;c.sync();
  const visibility=(visible,changes={})=>f.listeners.message({source:f.parent,origin:c.location.origin,data:{type:'sofacet:experience-visibility',visible},...changes});
  visibility(false,{origin:'https://other.test'});visibility(false,{source:{}});
  assert.equal(f.events.length,1,'untrusted messages cannot change the activity clock');

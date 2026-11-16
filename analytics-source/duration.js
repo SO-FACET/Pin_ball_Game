@@ -41,5 +41,6 @@ export function createDurationClock({now,emit}){
  function setGameActivity(value){if(playing===value)return;flush();playing=value;sample=timestamp()}
  function startGame(){flush();gamePending=0;gameTotal=0;sample=timestamp()}
  function finishGame(){flush();playing=false;sample=timestamp();return Math.floor(gameTotal)}
- return {start,stop,enterPage,leavePage,setForeground,setGameActivity,startGame,finishGame,flush};
+ function gameDuration(){accrue();return Math.floor(gameTotal)}
+ return {start,stop,enterPage,leavePage,setForeground,setGameActivity,startGame,finishGame,gameDuration,flush};
 }

@@ -1,8 +1,9 @@
 import {rewardFromPoints} from '../../shared/reward-value.js';
-import {apiOutcome,apiFailure} from '../../shared/analytics.js';
+import {apiStarted,apiOutcome,apiFailure} from '../../shared/analytics.js';
 
 export async function request(path, body, signal) {
   const started=Date.now();
+  const analyticsContext=apiStarted(path,body);
   const controller = new AbortController();
   const abort = () => controller.abort();
   if (signal?.aborted) controller.abort();
@@ -20,10 +21,10 @@ export async function request(path, body, signal) {
       error.code = result?.code; error.status = response.status; error.retryAfter = result?.retryAfter;
       throw error;
     }
-    apiOutcome(path,response.status,result,Date.now()-started);
+    apiOutcome(path,response.status,result,Date.now()-started,analyticsContext);
     return result;
   } catch (error) {
-    if(!signal?.aborted)apiFailure(path,error.name==='AbortError'?Object.assign(new Error('Request timed out'),{status:0}):error,Date.now()-started);
+    if(!signal?.aborted)apiFailure(path,error.name==='AbortError'?Object.assign(new Error('Request timed out'),{status:0}):error,Date.now()-started,analyticsContext);
     if (error.name === 'AbortError' && !signal?.aborted) throw new Error('The request timed out. Please try again.');
     throw error;
   } finally {

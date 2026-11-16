@@ -298,18 +298,24 @@ try{
     // rendering remains covered by the independent 3D browser jobs. Use the
     // existing Low mode to bound graphics work in this lifecycle fixture.
     await page.evaluate(()=>{sessionStorage.setItem('sofacet-game-visited','1');localStorage.setItem('sofacet.controls-practised.v1','done');localStorage.setItem('sofacet.game-quality.v1','low');});
-    const readyCount=gaItems('game_ready').length;
+    const loadCount=gaItems('game_load_started').length,readyCount=gaItems('game_ready').length;
     await page.goto(origin+'/game');
     await page.waitForSelector('#stage[data-ready="true"]',{timeout:90000});
     report.gameQuality=await page.locator('#quality').inputValue();
     assert.equal(report.gameQuality,'low','The isolated analytics fixture uses the existing Low graphics mode');
     await waitForGa('game_ready');
+    await waitForGa('game_load_started');
+    assert.equal(gaItems('game_load_started').length,loadCount+1,'Standalone game load is tracked once before readiness');
     assert.equal(gaItems('game_ready').length,readyCount+1,'Standalone game becomes ready once');
     const startedCount=gaItems('game_started').length;
     await page.locator('#start').click();
     await page.waitForFunction(()=>!document.querySelector('#touch-launch').hidden&&!document.querySelector('#touch-launch').disabled);
     await waitForGa('game_started',properties=>properties.online===true&&properties.page_path==='/game');
     assert.equal(gaItems('game_started').length,startedCount+1,'One actual game start');
+    const playedCount=gaItems('game_play_started').length;
+    await page.locator('#touch-launch').click({delay:500,scroll:'none'});
+    await waitForGa('game_play_started',properties=>properties.page_path==='/game'&&Number.isInteger(properties.run_sequence));
+    assert.equal(gaItems('game_play_started').length,playedCount+1,'The first real ball launch records one play milestone');
     const pausedCount=gaItems('game_paused').length,resumedCount=gaItems('game_resumed').length;
     // Pause toolbars and the child iframe are fixed in view. No-scroll retains
     // viewport reachability, actionability and normal trusted pointer input.
@@ -407,6 +413,14 @@ try{
     await setConsent(true);
     await page.waitForFunction(()=>window.sofacetAnalytics.getStatus().google);
     await childRunning();
+    await page.evaluate(()=>window.__durationFixture.advance(60000));
+    await childFrames();
+    assert.deepEqual(gameSegments(),[],'Consented initial launcher wait is not active play');
+    const iframePlayedCount=iframeItems('game_play_started').length;
+    await child.locator('#touch-launch').click({delay:500,scroll:'none'});
+    await waitForGa('game_play_started',properties=>properties.page_path==='/game');
+    await childFrames();
+    assert.equal(iframeItems('game_play_started').length,iframePlayedCount+1,'The embedded first launch delegates one play milestone to the parent');
     await page.evaluate(()=>window.__durationFixture.advance(1000));
     await child.locator('#pause').click({scroll:'none'});
     await expectGameSegments([1000]);
@@ -457,7 +471,7 @@ try{
     await page.evaluate(()=>window.__durationFixture.advance(200));
     await child.locator('#pause').click({scroll:'none'});
     await expectGameSegments([1000,2000,500,750,250,100,200]);
-    report.iframeDurationChecks={passed:true,controlledParentClockOnly:true,childNativeClock:true,normalUiControls:true,controlledParentVisibilityMessages:true,preConsentMsExcluded:60000,revokedMsExcluded:60000,pausedMsExcluded:60000,infoMsExcluded:62500,parentInactiveMsExcluded:60000,gameSegmentsMs:gameSegments()};
+    report.iframeDurationChecks={passed:true,controlledParentClockOnly:true,childNativeClock:true,normalUiControls:true,controlledParentVisibilityMessages:true,firstLaunchTracked:true,initialLauncherWaitMsExcluded:60000,preConsentMsExcluded:60000,revokedMsExcluded:60000,pausedMsExcluded:60000,infoMsExcluded:62500,parentInactiveMsExcluded:60000,gameSegmentsMs:gameSegments()};
    }else if(workflow==='claim')report.gameHooksOmitted='Explicit website mode; the complete macOS analytics gates exercise the real game.';
    for(const item of gaEvents.filter(item=>item[0]==='event'))for(const key of ['duration_ms','page_active_ms','game_active_ms'])if(Object.hasOwn(item[2],key)){
     const value=item[2][key];

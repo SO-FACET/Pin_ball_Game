@@ -1,14 +1,17 @@
 import {boundedDuration,createDurationClock} from './duration.js';
 import {safePagePath,isKnownPagePath,redactText,sanitizeException} from './privacy.js';
 import {installEmbeddedReplay} from './embedded-replay.js';
+import {createGameFunnel} from './game-funnel.js';
 
 const eventKeys={
  page_view:[],page_leave:['duration_ms'],navigation_click:['destination','link_kind','control'],ui_click:['control'],
  ui_change:['control','control_type','checked'],ui_toggle:['control','expanded'],scroll_depth:['percent'],game_control:['control','action','input_method'],
  page_engagement:['page_active_ms'],game_engagement:['game_active_ms'],
- form_submit:['form'],form_invalid:['form','field'],game_started:['online'],game_finished:['points','duration_ms'],
- game_paused:[],game_resumed:[],game_ready:[],game_load_failed:['phase','code'],tutorial_completed:['outcome'],
- score_verified:['points','best_points'],reward_saved:['points'],reward_discarded:[],
+ form_submit:['form'],form_invalid:['form','field'],game_load_started:['run_sequence'],game_started:['online','run_sequence'],game_finished:['points','duration_ms','run_sequence'],
+ game_play_started:['run_sequence'],game_engaged:['run_sequence','duration_ms'],game_abandoned:['run_sequence','stage','reason','duration_ms','early'],
+ game_session_outcome:['run_sequence','stage','reason','outcome','duration_ms','points'],
+ game_paused:[],game_resumed:[],game_ready:['run_sequence'],game_load_failed:['phase','code'],tutorial_completed:['outcome'],
+ score_verified:['points','best_points','run_sequence'],reward_saved:['points','run_sequence'],reward_discarded:['run_sequence'],reward_save_started:['run_sequence','method'],reward_save_failed:['run_sequence','status'],
  otp_requested:['method','flow'],otp_verified:['method','flow'],login:['method','flow'],sign_up:['method','flow'],
  logout:['method','flow'],profile_updated:['method','flow'],account_deleted:['method','flow'],
  first_cuts_registered:['method','flow'],share:['method'],
@@ -19,7 +22,7 @@ export const safePath=safePagePath;
 export const redact=redactText;
 export function cleanProperties(name,properties){
  const clean={};
- const numeric=new Set(['points','best_points','status']);
+ const numeric=new Set(['points','best_points','status','run_sequence']);
  const durations=new Set(['duration_ms','page_active_ms','game_active_ms']);
  const enums={method:new Set(['button','form','phone_otp','clipboard','native','whatsapp','telegram','x','email','gmail']),link_kind:new Set(['internal','external','email','phone']),flow:new Set(['account','signin','signup']),action:new Set(['press','release']),input_method:new Set(['keyboard','touch']),control_type:new Set(['checkbox','radio','range','select-one','select-multiple'])};
  for(const key of eventKeys[name]||[]){
@@ -27,7 +30,7 @@ export function cleanProperties(name,properties){
   if(key==='endpoint'){if(endpoints.has(value))clean[key]=value;continue}
   if(key==='destination'){if(isKnownPagePath(value)||['external','email','phone'].includes(value))clean[key]=value;continue}
   if(key==='percent'){if([25,50,75,100].includes(value))clean[key]=value;continue}
-  if(key==='checked'||key==='expanded'){if(typeof value==='boolean')clean[key]=value;continue}
+  if(key==='checked'||key==='expanded'||key==='early'){if(typeof value==='boolean')clean[key]=value;continue}
   if(durations.has(key)){const duration=boundedDuration(value);if(duration!==null)clean[key]=duration;continue}
   if(numeric.has(key)){if(typeof value==='number'&&Number.isFinite(value))clean[key]=Math.max(0,Math.round(value));continue}
   if(key==='online'){if(typeof value==='boolean')clean[key]=value;continue}
@@ -49,7 +52,8 @@ export function installAnalytics(win,{loadGoogle,loadPosthog}={}){
  const publishReplayContext=()=>{if(recordingAllowed()&&typeof posthog?.replayContext==='function')call(()=>win.dispatchEvent(new (win.CustomEvent||win.Event)('sofacet:replay-context')))};
  const topApi=()=>call(()=>win.top.sofacetAnalytics);
  const common=(path=win.top.location.href)=>({page_path:safePath(path,win.location.origin),environment:config?.environment||'production',release:config?.release||''});
- const duration=createDurationClock({now:()=>typeof win.performance?.now==='function'?win.performance.now():Date.now(),emit:(name,properties,path)=>record(name,properties,path)});
+ const duration=createDurationClock({now:()=>typeof win.performance?.now==='function'?win.performance.now():Date.now(),emit:(name,properties,path)=>{record(name,properties,path);if(name==='game_engagement')funnel.sample()}});
+ const funnel=createGameFunnel({emit:(name,properties)=>record(name,properties),gameDuration:()=>duration.gameDuration()});
  const foreground=()=>win.document.hidden!==true&&(!win.document.visibilityState||win.document.visibilityState==='visible')&&(typeof win.document.hasFocus!=='function'||call(()=>win.document.hasFocus())===true);
  function clearDurationTimer(){if(durationTimer!==null){call(()=>win.clearInterval(durationTimer));durationTimer=null}}
  function syncDuration(){
@@ -74,8 +78,11 @@ export function installAnalytics(win,{loadGoogle,loadPosthog}={}){
  }
  function track(name,properties={}){
   if(embedded)return call(()=>topApi()?.track(name,properties));
-  if(name==='game_started')duration.startGame();
+  if(!enabled||!allowed())return;
   if(name==='game_finished'){gameActivity=false;properties={...properties,duration_ms:duration.finishGame()}}
+  properties=funnel.event(name,properties);
+  if(!properties)return;
+  if(name==='game_started')duration.startGame();
   record(name,properties);
  }
  function record(name,properties={},path){
@@ -140,7 +147,7 @@ export function installAnalytics(win,{loadGoogle,loadPosthog}={}){
   publishReplayContext();
  }
  function stop(){
-  timingReady=false;clearDurationTimer();duration.stop();
+  timingReady=false;clearDurationTimer();duration.stop();funnel.reset();
   if(scrollTimer!==null){call(()=>win.clearTimeout(scrollTimer));scrollTimer=null}
   enabled=false;generation++;identityRevision++;userId=null;queue=[];lastPage='';
   call(()=>releaseReplaySession?.());releaseReplaySession=null;
@@ -179,13 +186,14 @@ export function installAnalytics(win,{loadGoogle,loadPosthog}={}){
    // start() reset the clock, so reconcile its page even when pageView dedupes.
    duration.enterPage(lastPage);duration.setGameActivity(gameActivity&&lastPage==='/game');syncDuration();
    for(const item of queue.splice(0))send(item);
+   call(()=>win.dispatchEvent(new (win.CustomEvent||win.Event)('sofacet:analytics-enabled')));
    publishReplayContext();
   })();
   await starting;
   // A rapid revoke/regrant during SDK loading should restart with the new choice.
   if(allowed()&&!enabled&&epoch!==generation)void start();
  }
- const api={track,setGameActivity,captureError,refreshIdentity,resetIdentity,clearIdentity,getReplayContext:()=>enabled&&recordingAllowed()?call(()=>posthog?.replayContext?.()):null,getStatus:()=>({enabled:enabled&&allowed(),google:!!google,posthog:!!posthog,recording:!!call(()=>posthog?.recording())})};
+ const api={track,setGameActivity,captureError,refreshIdentity,resetIdentity,clearIdentity,getGameContext:()=>embedded?call(()=>topApi()?.getGameContext?.()):enabled&&allowed()?funnel.context():{},getReplayContext:()=>enabled&&recordingAllowed()?call(()=>posthog?.replayContext?.()):null,getStatus:()=>({enabled:enabled&&allowed(),google:!!google,posthog:!!posthog,recording:!!call(()=>posthog?.recording())})};
  win.sofacetAnalytics=api;
  call(()=>win.dispatchEvent(new (win.CustomEvent||win.Event)('sofacet:analytics-ready')));
  win.addEventListener('error',event=>{
@@ -238,7 +246,7 @@ export function installAnalytics(win,{loadGoogle,loadPosthog}={}){
    win.history[method]=function(...args){const result=original.apply(this,args);if(enabled&&allowed())pageView();return result};
   }
   win.addEventListener('popstate',()=>{if(enabled&&allowed())pageView()});
-  win.addEventListener('pagehide',leavePage);
+  win.addEventListener('pagehide',event=>{if(!event?.persisted&&enabled&&allowed())funnel.finish('pagehide');leavePage()});
   win.addEventListener('pageshow',event=>{if(event.persisted&&enabled&&allowed())pageView()});
   win.addEventListener('focus',syncDuration);
   win.addEventListener('blur',syncDuration);
