@@ -7,6 +7,7 @@ import { advanceJourneyFrame, createJourneyCompletion, FINAL_FRAME_HOLD_MS } fro
 import { createFrameRatePanel } from './frame-rate-panel.js';
 import { framePlacement } from '/frame-placement.js';
 import { siteSound, CHESS_HIT_FRAME } from '/sounds/site-audio.js?v=frames-f48ace593c02';
+import { captureError } from '../shared/analytics.js';
 
 const $=id=>document.getElementById(id);
 const firstFrame=JOURNEY_START_FRAME,lastFrame=CHESS_HIT_FRAME;
@@ -248,7 +249,7 @@ try{
         }
         frameRate?.record();
       },
-      onError:error=>{console.error(error);if(ready&&!gameRequested)enterGame();},
+      onError:error=>{captureError(error,{source:'entrance_renderer'});console.error(error);if(ready&&!gameRequested)enterGame();},
     });
     if(gameRequested||startupFailed){journey.dispose();journey=null;return;}
     await journey.loadVariant('compact',{download:modelDownload});
@@ -261,6 +262,7 @@ try{
   await presentationReady;
   startScene();
 }catch(error){
+  if(error?.name!=='AbortError')captureError(error,{source:'entrance_startup'});
   startupFailed=true;cancelStartup();
   journey?.dispose();journey=null;
   if(!gameRequested){

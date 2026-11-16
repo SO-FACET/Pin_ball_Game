@@ -6,13 +6,13 @@ import {analyticsConfig,analyticsUserId} from '../analytics-config.mjs';
 import {withGameLoader} from '../scripts/game-loader-shell.mjs';
 import {apiOutcome,apiFailure} from '../shared/analytics.js';
 
-function setup({consent=false,enabled=true,googleFails=false,holdPosthog=false,holdIdentity=false,identity='user_'+'a'.repeat(64)}={}){
+function setup({consent=false,recording=false,enabled=true,googleFails=false,holdPosthog=false,holdIdentity=false,identity='user_'+'a'.repeat(64)}={}){
  const events={},documentEvents={},calls=[],requests=[],loads=[];
- let allowed=consent,resolvePosthog;
+ let allowed=consent,recordingAllowed=recording,resolvePosthog;
  const identityResolvers=[];
- const provider=kind=>({track:(name,properties)=>calls.push({kind,name,properties}),error:(error,properties)=>calls.push({kind,name:'error',message:error.message,properties}),identify:id=>calls.push({kind,name:'identify',id}),reset:()=>calls.push({kind,name:'reset'}),stop:()=>calls.push({kind,name:'stop'})});
+ const provider=kind=>({track:(name,properties)=>calls.push({kind,name,properties}),error:(error,properties)=>calls.push({kind,name:'error',message:error.message,stack:error.stack,properties}),identify:id=>calls.push({kind,name:'identify',id}),setRecordingAllowed:value=>calls.push({kind,name:'recording',value}),reset:()=>calls.push({kind,name:'reset'}),stop:()=>calls.push({kind,name:'stop'})});
  const win={location:new URL('https://site.test/game?email=private@example.com#secret'),document:{addEventListener:(name,fn)=>documentEvents[name]=fn},
-  sofacetCookiePreferences:{allows:()=>allowed},addEventListener:(name,fn)=>events[name]=fn,
+  sofacetCookiePreferences:{allows:category=>allowed&&(category!=='recording'||recordingAllowed)},addEventListener:(name,fn)=>events[name]=fn,
   history:{pushState(state,_,url){win.location=new URL(url,win.location)},replaceState(state,_,url){win.location=new URL(url,win.location)}},
   fetch:async path=>{requests.push(path);if(path==='/api/analytics-identity'&&holdIdentity)await new Promise(resolve=>identityResolvers.push(resolve));return {ok:true,json:async()=>path==='/api/analytics-config'?{enabled,gaId:'G-TEST',posthogKey:'phc_test',environment:'test'}:{userId:identity}}},
  };win.top=win;
@@ -20,9 +20,47 @@ function setup({consent=false,enabled=true,googleFails=false,holdPosthog=false,h
   loadGoogle:async(_config,userId)=>{loads.push({kind:'ga',userId});if(googleFails)throw Error('Blocked');return provider('ga')},
   loadPosthog:async(_config,_allowed,userId)=>{loads.push({kind:'ph',userId});if(holdPosthog)await new Promise(resolve=>resolvePosthog=resolve);return provider('ph')},
  });
- return {win,api,calls,requests,loads,events,documentEvents,release:()=>resolvePosthog?.(),releaseIdentity:(index=0)=>identityResolvers[index]?.(),consent(value){allowed=value;events['sofacet:cookie-preferences']()}};
+ return {win,api,calls,requests,loads,events,documentEvents,release:()=>resolvePosthog?.(),releaseIdentity:(index=0)=>identityResolvers[index]?.(),consent(value){allowed=value;events['sofacet:cookie-preferences']()},recording(value){recordingAllowed=value;events['sofacet:cookie-preferences']()}};
 }
 const settled=()=>new Promise(resolve=>setImmediate(resolve));
+
+test('recording-only preferences update the provider without another pageview, identity request or SDK load',async()=>{
+ const s=setup({consent:true});await settled();
+ const baseline={loads:s.loads.length,requests:s.requests.length,pageviews:s.calls.filter(x=>x.name==='page_view').length};
+ assert.equal(s.calls.find(x=>x.kind==='ph'&&x.name==='recording').value,false);
+ s.recording(true);await settled();assert.equal(s.calls.at(-1).value,true);
+ s.recording(false);await settled();assert.equal(s.calls.at(-1).value,false);
+ assert.deepEqual({loads:s.loads.length,requests:s.requests.length,pageviews:s.calls.filter(x=>x.name==='page_view').length},baseline);
+ assert.equal(s.calls.filter(x=>x.name==='stop').length,0);
+});
+
+test('ordinary anonymous account-session refreshes preserve the PostHog visitor and session',async()=>{
+ const s=setup({consent:true,identity:null});await settled();s.api.clearIdentity();s.api.clearIdentity();
+ assert.equal(s.calls.filter(x=>x.kind==='ph'&&x.name==='reset').length,0);
+ assert.equal(s.calls.filter(x=>x.kind==='ga'&&x.name==='page_view').length,1);
+ s.api.resetIdentity();assert.equal(s.calls.filter(x=>x.kind==='ph'&&x.name==='reset').length,1,'Explicit logout still rotates an anonymous visitor');
+});
+
+test('one Error traversing multiple recovery boundaries is reported once with a symbolizable stack',async()=>{
+ const s=setup({consent:true});await settled();const error=new TypeError('Renderer failed for private@example.com');
+ error.stack='TypeError: private@example.com\n at render (https://site.test/assets/game-test.js?token=secret:4:328765)';
+ s.api.captureError(error,{source:'entrance_renderer'});s.api.captureError(error,{source:'entrance_startup'});
+ const errors=s.calls.filter(x=>x.kind==='ph'&&x.name==='error');assert.equal(errors.length,1);assert.match(errors[0].stack,/game-test\.js:4:328765/);assert.doesNotMatch(errors[0].stack,/private@example|token=secret/);
+});
+
+test('control changes and toggles report structure and state without input values',async()=>{
+ const s=setup({consent:true});await settled();
+ const control={id:'quality',type:'select-one',value:'private@example.com',getAttribute:()=>null,closest:()=>false};
+ s.documentEvents.change({target:control});
+ s.documentEvents.change({target:{...control,type:'email'}});
+ s.documentEvents.change({target:{...control,id:'sound',type:'checkbox',checked:true}});
+ s.documentEvents.toggle({target:{...control,tagName:'DETAILS',id:'faq_coins',open:true}});
+ const actions=s.calls.filter(x=>x.kind==='ph'&&['ui_change','ui_toggle'].includes(x.name));
+ assert.equal(actions.length,3);assert.equal(actions[1].properties.checked,true);assert.equal(actions[2].properties.expanded,true);
+ assert.doesNotMatch(JSON.stringify(actions),/private@example|value/);
+ s.api.track('game_control',{control:'launcher',action:'press',input_method:'keyboard',key:'Space'});
+ assert.deepEqual(s.calls.at(-1).properties,{control:'launcher',action:'press',input_method:'keyboard',page_path:'/game',environment:'test',release:''});
+});
 
 test('no config, SDK, events or identity requests before analytics consent',async()=>{
  const s=setup();s.api.track('game_started');s.api.captureError(Error('hidden'));await settled();
@@ -77,7 +115,7 @@ test('a concurrent session refresh cannot release startup before its latest iden
 test('contact links and FAQ controls are useful without collecting link addresses or cookie-dialog actions',async()=>{
  const s=setup({consent:true});await settled();
  const click=({tagName='BUTTON',href='',control,cookie=false,disabled=false}={})=>{
-  const element={tagName,href,disabled,id:'',closest:selector=>selector==='#sf-cookie-root'&&cookie,
+  const element={tagName,href,disabled,id:'',closest:selector=>selector.includes('#sf-cookie-root')&&cookie,
    getAttribute:name=>name==='data-analytics-control'?control:null};
   s.documentEvents.click({target:{closest:()=>element}});
  };

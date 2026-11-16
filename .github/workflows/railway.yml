@@ -206,12 +206,19 @@ jobs:
           SOFACET_BROWSER: ${{ matrix.browser }}
           SOFACET_ANALYTICS_GAME_MODE: full
         run: node scripts/browser-analytics.mjs --require-complete
+      - name: Check real PostHog SDK, replay privacy and consent revocation
+        env:
+          SOFACET_PLAYWRIGHT_PATH: ${{ runner.temp }}/analytics-check/node_modules/playwright
+          SOFACET_BROWSER: ${{ matrix.browser }}
+        run: node scripts/browser-posthog.mjs
       - name: Upload complete analytics fixture reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: analytics-full-${{ matrix.browser }}
-          path: work/analytics-browser/${{ matrix.browser }}/
+          path: |
+            work/analytics-browser/${{ matrix.browser }}/
+            work/posthog-browser/${{ matrix.browser }}/
           if-no-files-found: warn
           retention-days: 14
 

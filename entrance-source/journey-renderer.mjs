@@ -37,6 +37,10 @@ renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1;
 renderer.transmissionResolutionScale=performanceMode?.5:1;
 if(performanceMode)renderer.setOpaqueSort((a,b)=>a.groupOrder-b.groupOrder||a.renderOrder-b.renderOrder||a.z-b.z||a.material.id-b.material.id||a.id-b.id);
 stage.prepend(renderer.domElement);
+// Publish only after the authored WebGL context exists. Replay can then sample
+// pixels without opting this renderer into a persistent drawing buffer.
+renderer.domElement.dataset.sofacetReplayReady='true';
+window.dispatchEvent(new CustomEvent('sofacet:public-canvas-ready'));
 const scene=new THREE.Scene();scene.background=new THREE.Color('#101827');
 const pmrem=new THREE.PMREMGenerator(renderer);const envScene=new RoomEnvironment();
 const env=pmrem.fromScene(envScene,.04);scene.environment=env.texture;scene.environmentIntensity=.4;

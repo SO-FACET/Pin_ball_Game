@@ -33,7 +33,11 @@
         endpoint: '/api/account/session', status, duration_ms: Date.now() - started, outcome: 'success',
       });
       if (session.signedIn) void window.sofacetAnalytics?.refreshIdentity();
-      else window.sofacetAnalytics?.resetIdentity();
+      else {
+        const analytics=window.sofacetAnalytics;
+        if(typeof analytics?.clearIdentity==='function')analytics.clearIdentity();
+        else analytics?.resetIdentity();
+      }
       root.toggleAttribute('data-signed-out', session.signedIn === false);
       root.toggleAttribute('data-signed-in', session.signedIn === true);
       if (session.signedIn && Number.isFinite(session.expiresIn)) {

@@ -27,6 +27,7 @@ export function setGameActivity(active){
 export function captureError(error,context={}){try{api()?.captureError(error,context)}catch{}}
 export function refreshAnalyticsIdentity(){try{void api()?.refreshIdentity()}catch{}}
 function resetAnalyticsIdentity(){try{api()?.resetIdentity()}catch{}}
+function clearAnalyticsIdentity(){try{const analytics=api();if(typeof analytics?.clearIdentity==='function')analytics.clearIdentity();else analytics?.resetIdentity()}catch{}}
 
 const sessionEndpoints=new Set(['/api/account','/api/account/session','/api/account/details','/api/account/signout','/api/account/delete','/api/membership','/api/membership/rewards']);
 const savedReward=result=>result?.pointsSaved===true&&Number.isSafeInteger(result.savedPoints)&&result.savedPoints>=0;
@@ -53,7 +54,8 @@ export function apiOutcome(path,status,result,duration){
  if(event)track(event[0],{method:event[1],flow:event[2]});
  if(savedReward(result))track('reward_saved',{points:result.savedPoints});
  if(event?.[0]==='login'||event?.[0]==='sign_up'||endpoint==='/api/account'||endpoint==='/api/player'||endpoint==='/api/account/session'&&result.signedIn)refreshAnalyticsIdentity();
- if(event?.[0]==='logout'||event?.[0]==='account_deleted'||endpoint==='/api/account/session'&&!result.signedIn)resetAnalyticsIdentity();
+ if(event?.[0]==='logout'||event?.[0]==='account_deleted')resetAnalyticsIdentity();
+ else if(endpoint==='/api/account/session'&&!result.signedIn)clearAnalyticsIdentity();
 }
 export function apiFailure(path,error,duration){
  if(error?.name==='AbortError')return;
