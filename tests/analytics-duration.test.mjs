@@ -93,10 +93,10 @@ function runtime({consent=true,enabled=true,holdProvider=false}={}){
 const settled=()=>new Promise(resolve=>setImmediate(resolve));
 
 test('one foreground interval reports positive deltas and stops while unfocused, hidden or revoked',async()=>{
- const s=runtime();await settled();assert.equal(s.timers.size,1);assert.deepEqual(s.ready,['sofacet:analytics-ready']);
+ const s=runtime();await settled();assert.equal(s.timers.size,1);assert.deepEqual(s.ready,['sofacet:analytics-ready','sofacet:analytics-enabled']);
  s.api.track('game_started');s.api.setGameActivity(true);s.advance(15000);s.tick();
  assert.equal(sum(s.calls,'page_engagement','page_active_ms'),15000);assert.equal(sum(s.calls,'game_engagement','game_active_ms'),15000);
- s.focus(false);assert.equal(s.timers.size,0);s.advance(60000);s.visible(false);s.dispatch('pagehide');
+ s.focus(false);assert.equal(s.timers.size,0);s.advance(60000);s.visible(false);s.dispatch('pagehide',{persisted:true});
  assert.equal(sum(s.calls,'game_engagement','game_active_ms'),15000);
  s.visible(true);s.focus(true);s.dispatch('pageshow',{persisted:true});s.dispatch('pageshow',{persisted:true});assert.equal(s.timers.size,1);
  s.advance(1000);s.api.setGameActivity(false);s.advance(2000);s.api.track('game_finished',{points:200,duration_ms:999999});

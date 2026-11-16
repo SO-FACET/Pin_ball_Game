@@ -48,8 +48,9 @@ test('unsuccessful or incomplete mutation payloads never produce success or rewa
   apiOutcome('/api/account/session',200,{},5);
   apiOutcome('/api/first-cuts',500,{success:true},5);
  });
- assert.equal(calls.length,7);
- assert.ok(calls.every(x=>x.name==='api_request'&&x.properties.outcome==='failure'));
+ assert.equal(calls.filter(x=>x.name==='api_request').length,7);
+ assert.ok(calls.filter(x=>x.name==='api_request').every(x=>x.properties.outcome==='failure'));
+ assert.deepEqual(calls.filter(x=>x.name==='reward_save_failed'),[{name:'reward_save_failed',properties:{status:200}}]);
 });
 
 test('session loss clears identity while invalid OTPs and temporary failures preserve it',async()=>{

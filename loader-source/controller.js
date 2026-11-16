@@ -11,7 +11,12 @@ export function installGameLoader(renderCards) {
  const visitedKey='sofacet-game-visited';
  const hasVisited=()=>{try{return sessionStorage.getItem(visitedKey)==='1'}catch{return false}};
  let active=false,failed=false,parentVisible=parent===window,fade,delay,observer,pageObserver,events,blocked=[];
- let run=0,tableReady=false,cardsComplete=false,progressOnly=false,progressValue=0;
+ let run=0,tableReady=false,cardsComplete=false,progressOnly=false,progressValue=0,loadTracked=false;
+ function trackLoading(){
+  if(parentOwnsCards||!active||loadTracked||window.sofacetAnalytics?.getStatus?.().enabled===false||!window.sofacetAnalytics)return;
+  window.sofacetAnalytics.track('game_load_started');loadTracked=true;
+ }
+ addEventListener('sofacet:analytics-enabled',trackLoading);
  function updateProgress(value,complete=false){
   if(!active||failed||!Number.isFinite(value))return;
   progressValue=Math.max(progressValue,Math.max(0,Math.min(complete?100:99,Math.round(value))));
@@ -61,7 +66,8 @@ export function installGameLoader(renderCards) {
   if(active&&!failed)return;
   clearTimeout(fade);cleanup();active=false;cards.hidden=true;paint();
   progressOnly=!parentOwnsCards&&!story&&hasVisited();
-  active=true;failed=false;root.hidden=false;delete root.dataset.state;error.hidden=true;
+  active=true;failed=false;loadTracked=false;root.hidden=false;delete root.dataset.state;error.hidden=true;
+  trackLoading();
   root.dataset.loader=progressOnly?'progress':'cards';progress.hidden=!progressOnly;
   progressValue=0;updateProgress(0);
   run++;tableReady=false;cardsComplete=parentOwnsCards||progressOnly;
