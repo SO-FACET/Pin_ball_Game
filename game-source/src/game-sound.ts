@@ -56,7 +56,7 @@ export function createGameSound(){
   setMusic(active:boolean,delay=0){
    if(musicWanted===active)return;musicWanted=active;
    if(active){setup();musicStartAt=context!.currentTime+delay;void load().then(startMusic);return}
-   if(music&&context){const {source,gain}=music,now=context.currentTime;music=undefined;gain.gain.cancelScheduledValues(now);gain.gain.setValueAtTime(gain.gain.value,now);gain.gain.linearRampToValueAtTime(0,now+.12);source.stop(now+.13)}
+   if(music&&context){const {source,gain}=music,now=context.currentTime;music=undefined;gain.gain.cancelScheduledValues(now);gain.gain.setValueAtTime(gain.gain.value,now);gain.gain.linearRampToValueAtTime(0,now+.35);source.stop(now+.36)}
   },
  };
 }

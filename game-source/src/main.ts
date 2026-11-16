@@ -186,8 +186,8 @@ function sync(p=physics.pose()){
  }
  applyNavigationLayout();stage.classList.toggle('showing-play',!physics.active||p.state==='finished');
  sound.setMusic(physics.active&&p.state!=='finished');
- sound.setOutputActive(!document.hidden&&p.state!=='finished');
- siteSound.setActive(!starting&&(!physics.active||p.state==='finished'));
+ sound.setOutputActive(!document.hidden);
+ siteSound.setActive(!starting&&p.state==='finished');
  if(p.state==='finished'&&!completedRunRecorded){completedRunRecorded=true;
   clearKeys();holdCharge=false;showResult();
   void leaderboard.finish().catch(error=>console.warn('Completed game remains pending verification.',error));
@@ -244,7 +244,7 @@ addEventListener('keydown',event=>{
 });
 addEventListener('keyup',event=>{const wasHeld=keys.delete(event.code);if(wasHeld){const side=event.code==='KeyA'||event.code==='ArrowLeft'?'left':event.code==='KeyD'||event.code==='ArrowRight'?'right':null;if(side&&!keyboardPaddle(side)&&!touch.state[side])releasedPaddles[side]=true;updatePaddleSound()}if(playKeys.has(event.code)&&event.target===canvas)event.preventDefault()});
 function pauseOnFocusLoss(){clearKeys();tutorial?.cancelHold();if(loaded&&physics.active&&physics.state!=='finished')setGamePaused(true)}
-addEventListener('blur',pauseOnFocusLoss);document.addEventListener('visibilitychange',()=>{sound.setOutputActive(!document.hidden&&physics.state!=='finished');view.resetPerformanceSampling();syncLoadingAnimation();if(document.hidden){pauseOnFocusLoss();cancelAnimationFrame(animationFrame);animationFrame=0;lastFrame=0}else requestGameFrame()});
+addEventListener('blur',pauseOnFocusLoss);document.addEventListener('visibilitychange',()=>{sound.setOutputActive(!document.hidden);view.resetPerformanceSampling();syncLoadingAnimation();if(document.hidden){pauseOnFocusLoss();cancelAnimationFrame(animationFrame);animationFrame=0;lastFrame=0}else requestGameFrame()});
 addEventListener('storage',event=>{if(event.key==='sofacet-site-sound'){sound.setMuted(event.newValue==='off');updateSoundSettings()}});
 window.addEventListener('resize',()=>{clearKeys();tutorial?.cancelHold();applyDeviceView();applyInspectionLayout()});
 function bindFeedback(){caveEjecting=false;physics.onHit=(id,delta)=>{view.hit(id);if(delta>0)view.scoreDiamonds();sound.play(id==='cave'?'teleport':id.startsWith('ring_')||id.startsWith('triangle_')||id.startsWith('bumper_neutral_')?'rebound':'bumper',id.includes('left')?-.5:id.includes('right')?.5:0)};physics.onTarget=()=>{view.scoreDiamonds();sound.play('collect')};physics.onTransport=source=>{view.teleport(source,physics.pose().position);sound.play('teleport')}}

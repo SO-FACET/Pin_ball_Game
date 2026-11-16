@@ -6,7 +6,7 @@ const gamePage = !!document.querySelector('#score-page-root');
 export function createSiteSound() {
   let context, master, musicGain, rollingGain, rolling, hit;
   let loading, stopTimer, duckTimer, pauseTimer, requested = false, playGeneration = 0;
-  let enabled = true, unlocked = false, playing = false, started = false, active = !document.body?.hasAttribute('data-loading') || !!document.querySelector('#site-loader'), moving = false, lastFrame = 240, lastMove = 0;
+  let enabled = true, unlocked = false, playing = false, started = false, active = !gamePage && (!document.body?.hasAttribute('data-loading') || !!document.querySelector('#site-loader')), moving = false, lastFrame = 240, lastMove = 0;
   const music = new Audio();
   music.preload = 'none';
   music.src = '/sounds/SO-FACET-landing-audio-from-1m04s.mp3';
@@ -134,11 +134,11 @@ export function createSiteSound() {
       clearTimeout(stopTimer); clearTimeout(duckTimer); clearTimeout(pauseTimer);
       duckTimer = undefined;
       if (!context) return;
-      fade(rollingGain, 0, .025); fade(musicGain, 0, .035);
+      fade(rollingGain, 0, .025); fade(musicGain, 0, .1);
       // Keep the impact's short reverb audible across the visual transition.
       pauseTimer = setTimeout(() => {
         if (!active) { pauseMusic(); fade(master, 0, .025); void context.suspend(); }
-      }, 500);
+      }, 600);
     },
     frame(frame) {
       if (frame === lastFrame) return;
@@ -185,7 +185,7 @@ for (const type of ['pointerdown', 'keydown']) document.addEventListener(type, e
 }, { passive: true });
 document.addEventListener('visibilitychange', () => siteSound.visibility());
 window.addEventListener('storage', event => { if (event.key === 'sofacet-site-sound') siteSound.setEnabled(event.newValue !== 'off'); });
-window.addEventListener('pagehide', () => { siteSound.save(); siteSound.setActive(false); });
+window.addEventListener('pagehide', event => { siteSound.save(); if (event.persisted) siteSound.setActive(false); });
 window.addEventListener('pageshow', () => { if (!gamePage) siteSound.setActive((!document.body.hasAttribute('data-loading') || !!document.querySelector('#site-loader')) && document.body.dataset.game !== 'visible'); });
 // Keep the displayed choice stable while a new page waits for browser audio activation.
 siteSound.paint();

@@ -1,11 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import {createHash} from 'node:crypto';
 import vm from 'node:vm';
 import {transform} from 'esbuild-wasm';
 
 const source = await readFile(new URL('../sounds/site-audio.js', import.meta.url), 'utf8');
 const flush = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); };
+
+test('landing and entrance load one current site sound module', async () => {
+  const files=['../assets/loading/intro.js','../sequence.js','../entrance-source/entrance.mjs'];
+  const versions=await Promise.all(files.map(async file=>(await readFile(new URL(file,import.meta.url),'utf8')).match(/site-audio\.js\?v=frames-([\w-]+)/)?.[1]));
+  assert.deepEqual(versions,Array(files.length).fill(createHash('sha256').update(source).digest('hex').slice(0,12)));
+});
 
 function audioHarness({ muted = false, policy = false, faq = false, game = false, landing = false, wasPlaying = false, blocked = false, blockedMedia = false, savedPosition, oldPosition } = {}) {
   let now = 0, timerId = 0;
@@ -101,6 +108,19 @@ test('the trimmed website soundtrack starts at its beginning and remembers only 
   assert.equal(next.music.currentTime, 110);
 });
 
+test('ordinary navigation saves the music position without pausing early', async () => {
+  const h=audioHarness({landing:true});await flush();
+  h.music.currentTime=37.5;
+  h.window.dispatchEvent(new Event('pagehide'));
+  assert.equal(h.pauses,0);
+  assert.equal(h.session.get('sofacet-site-music-v3'),'37.5');
+  const next=audioHarness({savedPosition:37.5,wasPlaying:true});
+  next.audioEvents.get('loadedmetadata')();
+  assert.equal(next.music.currentTime,37.5);
+  h.window.dispatchEvent(Object.assign(new Event('pagehide'),{persisted:true}));
+  assert.equal(h.pauses,1,'a cached page must not keep playing behind the next page');
+});
+
 test('the landing loader starts the trimmed soundtrack and keeps it playing after reveal', async () => {
   const h = audioHarness({ landing: true });
   await flush();
@@ -123,6 +143,8 @@ test('music fades in and continues through cards until the game becomes visible'
   assert.equal(h.gains[2].value, 0);
   h.sound.handoff();
   h.advance(500);
+  assert.equal(h.pauses, 0, 'the music plays through the fade');
+  h.advance(100);
   assert.equal(h.pauses, 1);
 });
 
@@ -130,9 +152,10 @@ test('the game result resumes site music with its sound button inside the dialog
   const h = audioHarness({ game: true, savedPosition: 110 });
   assert.equal(h.placements.length, 1);
   assert.equal(h.placements[0].parent, 'rewards');
+  assert.equal(h.contexts.length, 0, 'the game page does not start site music before its result');
   h.audioEvents.get('loadedmetadata')();
   await h.activate();
-  h.sound.handoff(); h.advance(500);
+  h.sound.handoff(); h.advance(600);
   assert.equal(h.pauses, 1);
   h.sound.setActive(true); await flush();
   assert.equal(h.gains[0].value, 1);
