@@ -1170,7 +1170,7 @@
       0.02590267250203283,
       -0.06677249857612226
     ],
-    "score_delta": 500,
+    "score_delta": -500,
     "response": "powered_floor_impact; drum_top_and_rail_support_remain_unpowered"
   },
   {
@@ -1757,7 +1757,7 @@
       0.02590267250203283,
       -0.09457004333530787
     ],
-    "score_delta": 500,
+    "score_delta": -500,
     "response": "powered_floor_impact; drum_top_and_rail_support_remain_unpowered"
   },
   {
@@ -2056,7 +2056,7 @@
       0.020844311633498636,
       0.06141388561971072
     ],
-    "score_delta": 150,
+    "score_delta": 200,
     "response": "powered_floor_impact; drum_top_and_rail_support_remain_unpowered"
   },
   {
@@ -2355,7 +2355,7 @@
       0.020844311633498636,
       0.08962541362130748
     ],
-    "score_delta": 150,
+    "score_delta": 200,
     "response": "powered_floor_impact; drum_top_and_rail_support_remain_unpowered"
   },
   {
@@ -2654,7 +2654,7 @@
       0.020844311633498636,
       0.1142653308388662
     ],
-    "score_delta": 150,
+    "score_delta": 200,
     "response": "powered_floor_impact; drum_top_and_rail_support_remain_unpowered"
   },
   {
@@ -2953,7 +2953,7 @@
       0.020844239208117888,
       0.049651179811815986
     ],
-    "score_delta": 150,
+    "score_delta": 200,
     "response": "powered_floor_impact; drum_top_and_rail_support_remain_unpowered"
   },
   {
@@ -3252,7 +3252,7 @@
       0.020844239208117888,
       0.07273773614445342
     ],
-    "score_delta": 150,
+    "score_delta": 200,
     "response": "powered_floor_impact; drum_top_and_rail_support_remain_unpowered"
   },
   {
@@ -3551,7 +3551,7 @@
       0.020844239208117888,
       0.09731849293716184
     ],
-    "score_delta": 150,
+    "score_delta": 200,
     "response": "powered_floor_impact; drum_top_and_rail_support_remain_unpowered"
   },
   {
@@ -27947,7 +27947,7 @@
       0.0003270539457327377,
       -0.3623703209727778
     ],
-    "score_delta": 500,
+    "score_delta": 200,
     "response": "powered_floor_impact; drum_top_and_rail_support_remain_unpowered"
   },
   {
@@ -28037,7 +28037,7 @@
       8.757777880176642e-05,
       -0.4174167705790549
     ],
-    "score_delta": 500,
+    "score_delta": 200,
     "response": "powered_floor_impact; drum_top_and_rail_support_remain_unpowered"
   },
   {
@@ -28624,7 +28624,7 @@
       0.02590267250203283,
       -0.27505014514372245
     ],
-    "score_delta": 500,
+    "score_delta": -500,
     "response": "powered_floor_impact; drum_top_and_rail_support_remain_unpowered"
   },
   {

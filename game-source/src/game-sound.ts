@@ -15,7 +15,7 @@ export function createGameSound(){
  let music:{source:AudioBufferSourceNode;gain:GainNode}|undefined;
  const buffers=new Map<GameSound,AudioBuffer>(),lastPlayed=new Map<GameSound,number>();
  const setup=()=>{if(!context){context=new AudioContext();master=context.createGain();master.gain.value=muted||!outputActive?0:volume/100;master.connect(context.destination)}};
- const applyVolume=()=>{if(context&&master){const now=context.currentTime;master.gain.cancelScheduledValues(now);master.gain.setTargetAtTime(muted||!outputActive?0:volume/100,now,.015)}};
+ const applyVolume=()=>{if(context&&master){const now=context.currentTime;master.gain.cancelScheduledValues(now);const target=muted||!outputActive?0:volume/100;if(target===0)master.gain.setValueAtTime(0,now);else master.gain.setTargetAtTime(target,now,.015)}};
  const startMusic=()=>{
   if(!musicWanted||music||!context||!master)return;
   const buffer=buffers.get('music');if(!buffer)return;
@@ -56,7 +56,7 @@ export function createGameSound(){
   setMusic(active:boolean,delay=0){
    if(musicWanted===active)return;musicWanted=active;
    if(active){setup();musicStartAt=context!.currentTime+delay;void load().then(startMusic);return}
-   if(music&&context){const {source,gain}=music,now=context.currentTime;music=undefined;gain.gain.cancelScheduledValues(now);gain.gain.setValueAtTime(gain.gain.value,now);gain.gain.linearRampToValueAtTime(0,now+.12);source.stop(now+.13)}
+   if(music&&context){const {source,gain}=music,now=context.currentTime;music=undefined;gain.gain.cancelScheduledValues(now);gain.gain.setValueAtTime(gain.gain.value,now);gain.gain.linearRampToValueAtTime(0,now+.35);source.stop(now+.36)}
   },
  };
 }

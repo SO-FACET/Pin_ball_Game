@@ -34,8 +34,6 @@ export function installGameLoader(renderCards) {
  function completeCards(){
   if(!active||cardsComplete)return;
   cardsComplete=true;
-  cards.hidden=true;
-  paint();
   handoff();
  }
  function loadCards(){
@@ -64,7 +62,7 @@ export function installGameLoader(renderCards) {
   root.dataset.loader=progressOnly?'progress':'cards';progress.hidden=!progressOnly;
   progressValue=0;updateProgress(0);
   run++;tableReady=false;cardsComplete=parentOwnsCards||progressOnly;
-  status.firstChild.textContent='Polishing your table… ';
+  status.firstChild.textContent='Preparing your game… ';
   blocked=[...document.querySelectorAll('#stage')].map(element=>[element,element.inert]);for(const [element] of blocked)element.inert=true;
   events=new AbortController();const signal=events.signal;
   addEventListener('resize',measure,{signal});visualViewport?.addEventListener('resize',measure,{signal});document.addEventListener('visibilitychange',paint,{signal});

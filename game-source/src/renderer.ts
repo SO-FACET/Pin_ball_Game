@@ -68,7 +68,7 @@ export class TableView {
  convert(p:XYZ){const s=this.manifest.scale;return new THREE.Vector3(p[0]*s,p[2]*s,-p[1]*s)}
  async load(progress:(value:number,label:string)=>void){
   const json=async(url:string)=>{const r=await fetch(url,{cache:'no-cache'});if(!r.ok)throw new Error(`Missing asset: ${url}`);return r.json()};
-  const [manifest,referenceData]=await Promise.all([json('/assets/manifest.json?v=scoring-25'),json('/assets/reference-cameras.json')]);this.manifest=manifest;this.references=referenceData.views;
+  const [manifest,referenceData]=await Promise.all([json('/assets/manifest.json?v=scoring-26'),json('/assets/reference-cameras.json')]);this.manifest=manifest;this.references=referenceData.views;
   const asset=(name:string)=>'/assets/'+name+'?v='+(manifest.asset_checksums[name]||manifest.asset_revision);
   if(manifest.runtime_contract_version!==6)throw new Error('This model package is incompatible. Restore the matching game files.');
   if(manifest.target_gameplay?.length!==7||manifest.target_gameplay.some((t:{score:number})=>t.score!==1000))throw new Error('The model package is missing the seven 1000-point target mappings.');

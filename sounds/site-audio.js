@@ -6,7 +6,7 @@ const gamePage = !!document.querySelector('#score-page-root');
 export function createSiteSound() {
   let context, master, musicGain, rollingGain, rolling, hit;
   let loading, stopTimer, duckTimer, pauseTimer, requested = false, playGeneration = 0;
-  let enabled = true, unlocked = false, playing = false, started = false, active = !document.body?.hasAttribute('data-loading') || !!document.querySelector('#site-loader'), moving = false, lastFrame = 240, lastMove = 0;
+  let enabled = true, unlocked = false, playing = false, started = false, active = !gamePage && (!document.body?.hasAttribute('data-loading') || !!document.querySelector('#site-loader')), moving = false, lastFrame = 240, lastMove = 0;
   const music = new Audio();
   music.preload = 'none';
   music.src = '/sounds/SO-FACET-landing-audio-from-1m04s.mp3';
@@ -19,7 +19,7 @@ export function createSiteSound() {
   } catch {}
   music.addEventListener('loadedmetadata', () => { music.currentTime = musicPosition < music.duration ? musicPosition : MUSIC_START; });
   music.addEventListener('ended', () => { music.currentTime = MUSIC_START; if (audible()) playMusic(); });
-  const audible = () => enabled && unlocked && active;
+  const audible = () => enabled && unlocked && active && !document.hidden;
   const fade = (node, value, seconds = .08) => node.gain.setTargetAtTime(value, context.currentTime, seconds);
   const musicLevel = () => fade(musicGain, duckTimer ? .045 : moving ? .065 : .1, .18);
   const paint = () => {
@@ -58,7 +58,7 @@ export function createSiteSound() {
   function playMusic() {
     const generation = ++playGeneration;
     void music.play().then(() => {
-      if (generation !== playGeneration) return;
+      if (generation !== playGeneration) { if (!audible()) music.pause(); return; }
       playing = true; started = true; paint();
     }).catch(() => { if (generation === playGeneration) { playing = false; paint(); } });
   }
@@ -78,11 +78,12 @@ export function createSiteSound() {
   function update() {
     if (!context) return;
     clearTimeout(pauseTimer);
-    fade(master, audible() ? 1 : 0, audible() ? .3 : .1);
-    if (audible()) { musicLevel(); playMusic(); }
+    if (audible()) { fade(master, 1, .3); musicLevel(); playMusic(); }
     else {
       moving = false; clearTimeout(stopTimer); fade(rollingGain, 0, .04);
-      pauseTimer = setTimeout(() => { if (!audible()) { pauseMusic(); void context.suspend(); } }, 400);
+      master.gain.cancelScheduledValues(context.currentTime);
+      master.gain.setValueAtTime(0, context.currentTime);
+      pauseMusic(); void context.suspend();
     }
     paint();
   }
@@ -133,11 +134,11 @@ export function createSiteSound() {
       clearTimeout(stopTimer); clearTimeout(duckTimer); clearTimeout(pauseTimer);
       duckTimer = undefined;
       if (!context) return;
-      fade(rollingGain, 0, .025); fade(musicGain, 0, .035);
+      fade(rollingGain, 0, .025); fade(musicGain, 0, .1);
       // Keep the impact's short reverb audible across the visual transition.
       pauseTimer = setTimeout(() => {
         if (!active) { pauseMusic(); fade(master, 0, .025); void context.suspend(); }
-      }, 500);
+      }, 600);
     },
     frame(frame) {
       if (frame === lastFrame) return;
@@ -155,7 +156,7 @@ export function createSiteSound() {
       }
       lastMove = now;
     },
-    visibility() { stopRolling(); if (!document.hidden && enabled && context) unlock(); },
+    visibility() { stopRolling(); if (document.hidden) update(); else if (enabled && context) unlock(); },
     save() { try { if (music.readyState && music.currentTime >= MUSIC_START) sessionStorage.setItem(musicPositionKey, String(music.currentTime)); sessionStorage.setItem('sofacet-site-sound-active', enabled && started ? 'on' : 'off'); } catch {} },
     get enabled() { return enabled && unlocked; },
   };
@@ -183,7 +184,8 @@ for (const type of ['pointerdown', 'keydown']) document.addEventListener(type, e
   siteSound.unlock();
 }, { passive: true });
 document.addEventListener('visibilitychange', () => siteSound.visibility());
-window.addEventListener('pagehide', () => { siteSound.save(); siteSound.setActive(false); });
+window.addEventListener('storage', event => { if (event.key === 'sofacet-site-sound') siteSound.setEnabled(event.newValue !== 'off'); });
+window.addEventListener('pagehide', event => { siteSound.save(); if (event.persisted) siteSound.setActive(false); });
 window.addEventListener('pageshow', () => { if (!gamePage) siteSound.setActive((!document.body.hasAttribute('data-loading') || !!document.querySelector('#site-loader')) && document.body.dataset.game !== 'visible'); });
 // Keep the displayed choice stable while a new page waits for browser audio activation.
 siteSound.paint();

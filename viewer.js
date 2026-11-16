@@ -2,9 +2,9 @@ import * as THREE from 'three';
 import { loadSofacetBall, loadSofacetReflections, loadSofacetLighting } from './sofacet-ball.js';
 import { createPlateHover } from './plate-hover.js?v=frames-46f0ceb7b395';
 import { matchRenderedAppearance } from './reference-appearance.js?v=frames-ca6277e4770f';
-import { createSequence } from './sequence.js?v=frames-fefe4eb04fe7';
+import { createSequence } from './sequence.js?v=frames-e16e92088b9b';
 import { framePlacement } from './frame-placement.js';
-import { finishLoading } from './assets/loading/intro.js?v=frames-c6e43a3d8f7f';
+import { finishLoading } from './assets/loading/intro.js?v=frames-d0de1e1c14e4';
 import { createScrollCue } from './assets/landing-copy.js?v=text-only-4a34a8dc';
 import { createPerformanceOverlay } from './assets/performance-overlay.js?v=frames-d52ec8d8faf0';
 

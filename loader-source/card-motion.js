@@ -42,10 +42,10 @@ export function connectCardMotion(root, onComplete) {
   async function exchange(exitRight = false) {
     if (disposed || completed || busy || !visible || document.hidden) return;
     stopTimer();
+    const target = current + 1;
+    if (target === cards.length) { completed = true; onComplete(); return; }
     busy = true;
     stage.setAttribute('aria-busy', 'true');
-    const target = current + 1;
-    const last = target === cards.length;
     const moving = cards[current];
     const animations = [];
     try {
@@ -59,13 +59,12 @@ export function connectCardMotion(root, onComplete) {
         const smooth = (a, b, t) => {const value = Math.max(0, Math.min(1, (t-a)/(b-a))); return value*value*(3-2*value);};
         cards.forEach((card, index) => {
           const start = {transform: poses[rank(index)], filter: `brightness(${brightness[rank(index)]})`, opacity: 1};
-          const end = last ? {...start, opacity: 0} : {transform: poses[rank(index, target)], filter: `brightness(${brightness[rank(index, target)]})`, opacity: 1};
-          if (last && card === moving) end.transform = `translate(${direction * Math.max(travel, innerWidth)}px,-30px) rotate(${direction * 10}deg) scale(.94)`;
-          card.style.zIndex = card === moving ? 4 : 3 - rank(index, last ? current : target);
+          const end = {transform: poses[rank(index, target)], filter: `brightness(${brightness[rank(index, target)]})`, opacity: 1};
+          card.style.zIndex = card === moving ? 4 : 3 - rank(index, target);
           card.style.willChange = 'transform, opacity, filter';
           // One continuous arc; the layer handoff travels with the animation,
           // where the card is clear of the stack (and faded out on phones).
-          const frames = card === moving && !last ? Array.from({length: 65}, (_, step) => {
+          const frames = card === moving ? Array.from({length: 65}, (_, step) => {
             const t = step / 64;
             const x = curve(0, bend, bend, 28, t);
             const y = curve(0, -28, -54, -16, t);
@@ -82,7 +81,7 @@ export function connectCardMotion(root, onComplete) {
         await Promise.all(animations.map(animation => animation.finished));
       }
     } catch (error) {if (!disposed) console.error('Card transition failed:', error);} finally {
-      if (!disposed && !last) {
+      if (!disposed) {
         current = target;
         remaining = INTERVAL;
         render(true);
@@ -91,10 +90,7 @@ export function connectCardMotion(root, onComplete) {
       cards.forEach(card => {card.style.zIndex = ''; card.style.willChange = '';});
       busy = false;
       stage.setAttribute('aria-busy', 'false');
-      if (!disposed && last) {
-        completed = true;
-        onComplete();
-      } else schedule();
+      schedule();
     }
   }
   async function flip() {

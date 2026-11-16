@@ -1,5 +1,5 @@
-import { siteSound, CHESS_HIT_FRAME } from './sounds/site-audio.js?v=frames-a9c04ad83c00';
-import { finishLoading } from './assets/loading/intro.js?v=frames-c6e43a3d8f7f';
+import { siteSound, CHESS_HIT_FRAME } from './sounds/site-audio.js?v=frames-f48ace593c02';
+import { finishLoading } from './assets/loading/intro.js?v=frames-d0de1e1c14e4';
 import { createLandingCopy } from './assets/kinetic-copy.js?v=frames-9defbfc30c94';
 import { createFrameSource } from './assets/frame-source.js?v=frames-23eb123206c8';
 import { createFrameCache } from './assets/frame-cache.js?v=frames-c452ffd64863';

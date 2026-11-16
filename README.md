@@ -204,16 +204,16 @@ Tests use temporary storage and synthetic services. The local smoke check starts
 
 | Table interaction | Score |
 | --- | ---: |
-| SOFACET letter target | +1,500 |
+| SOFACET letter target | +1,000 |
 | Triangular block | +200 |
-| Ring block | +100 |
-| Cyan bumper | +500 |
+| Ring block | +50 |
+| Cyan bumper | −500 |
 | Neon green bumper | +500 |
-| Drum base bumper | +500 |
+| Drum base bumper | +200 |
 | Launcher | 0 |
-| Cave | +800 |
+| Cave | +400 |
 
-The score cannot fall below zero.
+The score cannot fall below zero, and a score under 10 cannot be saved.
 
 Scoring is shared between the client simulation and server replay verification. Keep replay versions, collision data and simulation parameters in sync when changing gameplay.
 

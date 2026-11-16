@@ -1,11 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import {createHash} from 'node:crypto';
 import vm from 'node:vm';
 import {transform} from 'esbuild-wasm';
 
 const source = await readFile(new URL('../sounds/site-audio.js', import.meta.url), 'utf8');
 const flush = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); };
+
+test('landing and entrance load one current site sound module', async () => {
+  const files=['../assets/loading/intro.js','../sequence.js','../entrance-source/entrance.mjs'];
+  const versions=await Promise.all(files.map(async file=>(await readFile(new URL(file,import.meta.url),'utf8')).match(/site-audio\.js\?v=frames-([\w-]+)/)?.[1]));
+  assert.deepEqual(versions,Array(files.length).fill(createHash('sha256').update(source).digest('hex').slice(0,12)));
+});
 
 function audioHarness({ muted = false, policy = false, faq = false, game = false, landing = false, wasPlaying = false, blocked = false, blockedMedia = false, savedPosition, oldPosition } = {}) {
   let now = 0, timerId = 0;
@@ -20,6 +27,7 @@ function audioHarness({ muted = false, policy = false, faq = false, game = false
   const button = element();
   const navigation = { prepend(node) { placements.push({ parent: 'navigation', node }); } };
   const rewards = { append(node) { placements.push({ parent: 'rewards', node }); } };
+  const window = new EventTarget();
   const document = {
     hidden: false, body: { hasAttribute: () => true, classList: { contains: name => policy && name === 'policy-page' },
       append(node) { placements.push({ parent: 'body', node }); } }, addEventListener() {},
@@ -44,7 +52,7 @@ function audioHarness({ muted = false, policy = false, faq = false, game = false
     async resume() { if (audioBlocked) throw new Error('Autoplay blocked'); this.state = 'running'; this.changed?.(); }
     async suspend() { this.state = 'suspended'; this.changed?.(); }
     createGain() {
-      const gain = { value: 0, changes: [], setTargetAtTime(value, time, seconds) { this.value = value; this.changes.push({value, seconds}); }, setValueAtTime() {}, linearRampToValueAtTime() {} };
+      const gain = { value: 0, changes: [], cancelScheduledValues() {}, setTargetAtTime(value, time, seconds) { this.value = value; this.changes.push({value, seconds}); }, setValueAtTime(value) { this.value = value; }, linearRampToValueAtTime() {} };
       gains.push(gain);
       return { ...node(), gain };
     }
@@ -54,7 +62,7 @@ function audioHarness({ muted = false, policy = false, faq = false, game = false
   }
   const sandbox = {
     document, Audio, AudioContext, console,
-    window: { addEventListener() {} },
+    window,
     matchMedia: () => ({ matches: true, addEventListener() {} }),
     localStorage: { getItem: key => preferences.get(key) ?? null, setItem: (key, value) => preferences.set(key, value) },
     sessionStorage: { getItem: key => session.get(key) ?? null, setItem: (key, value) => session.set(key, value) },
@@ -66,7 +74,7 @@ function audioHarness({ muted = false, policy = false, faq = false, game = false
   // Execute the shipped module, including its startup and event wiring, in an isolated browser fixture.
   vm.runInNewContext(source.replace(/^export /gm, '') + '\nglobalThis.sound = siteSound;', sandbox);
   return {
-    sound: sandbox.sound, document, contexts, gains, scheduled, cleared, placements, button, session, preferences, music, audioEvents,
+    sound: sandbox.sound, document, window, contexts, gains, scheduled, cleared, placements, button, session, preferences, music, audioEvents,
     get pauses() { return pauses; },
     get impacts() { return starts.filter(item => !item.source.loop).length; },
     rollingTimers: () => [...timers.values()].filter(timer => timer.delay === 130).length,
@@ -100,6 +108,19 @@ test('the trimmed website soundtrack starts at its beginning and remembers only 
   assert.equal(next.music.currentTime, 110);
 });
 
+test('ordinary navigation saves the music position without pausing early', async () => {
+  const h=audioHarness({landing:true});await flush();
+  h.music.currentTime=37.5;
+  h.window.dispatchEvent(new Event('pagehide'));
+  assert.equal(h.pauses,0);
+  assert.equal(h.session.get('sofacet-site-music-v3'),'37.5');
+  const next=audioHarness({savedPosition:37.5,wasPlaying:true});
+  next.audioEvents.get('loadedmetadata')();
+  assert.equal(next.music.currentTime,37.5);
+  h.window.dispatchEvent(Object.assign(new Event('pagehide'),{persisted:true}));
+  assert.equal(h.pauses,1,'a cached page must not keep playing behind the next page');
+});
+
 test('the landing loader starts the trimmed soundtrack and keeps it playing after reveal', async () => {
   const h = audioHarness({ landing: true });
   await flush();
@@ -122,6 +143,8 @@ test('music fades in and continues through cards until the game becomes visible'
   assert.equal(h.gains[2].value, 0);
   h.sound.handoff();
   h.advance(500);
+  assert.equal(h.pauses, 0, 'the music plays through the fade');
+  h.advance(100);
   assert.equal(h.pauses, 1);
 });
 
@@ -129,9 +152,10 @@ test('the game result resumes site music with its sound button inside the dialog
   const h = audioHarness({ game: true, savedPosition: 110 });
   assert.equal(h.placements.length, 1);
   assert.equal(h.placements[0].parent, 'rewards');
+  assert.equal(h.contexts.length, 0, 'the game page does not start site music before its result');
   h.audioEvents.get('loadedmetadata')();
   await h.activate();
-  h.sound.handoff(); h.advance(500);
+  h.sound.handoff(); h.advance(600);
   assert.equal(h.pauses, 1);
   h.sound.setActive(true); await flush();
   assert.equal(h.gains[0].value, 1);
@@ -203,12 +227,14 @@ test('muted impact crossings are consumed and only a sufficiently deep reversal 
   h.sound.handoff(); assert.equal(h.rollingTimers(), 0);
 });
 
-test('hidden and inactive frames do not schedule rolling work and visible movement resumes', async () => {
+test('switching tabs stops music immediately and visible movement resumes', async () => {
   const h = audioHarness(); await h.activate(); h.sound.frame(300);
   h.document.hidden = true; h.sound.visibility();
   assert.equal(h.rollingTimers(), 0);
-  h.advance(500); assert.equal(h.pauses, 0, 'hiding the tab must not stop music');
-  assert.equal(h.button.dataset.on, 'true');
+  assert.ok(h.pauses > 0);
+  assert.equal(h.gains[0].value, 0);
+  assert.equal(h.contexts[0].state, 'suspended');
+  assert.equal(h.button.dataset.on, 'false');
   const scheduled = h.scheduled.length;
   h.sound.frame(400); assert.equal(h.scheduled.length, scheduled);
   h.document.hidden = false; h.sound.visibility(); await flush();
@@ -216,6 +242,18 @@ test('hidden and inactive frames do not schedule rolling work and visible moveme
   h.sound.setActive(false);
   const inactiveScheduled = h.scheduled.length;
   h.sound.frame(500); assert.equal(h.scheduled.length, inactiveScheduled);
+});
+
+test('Sound Off and a choice changed in another tab silence music immediately', async () => {
+  const h = audioHarness(); await h.activate();
+  h.sound.toggle();
+  assert.equal(h.gains[0].value, 0);
+  assert.ok(h.pauses > 0);
+  assert.equal(h.contexts[0].state, 'suspended');
+  h.sound.setEnabled(true); await flush();
+  h.window.dispatchEvent(Object.assign(new Event('storage'), {key:'sofacet-site-sound',newValue:'off'}));
+  assert.equal(h.preferences.get('sofacet-site-sound'), 'off');
+  assert.equal(h.gains[0].value, 0);
 });
 
 test('a blocked new page retries sound instead of muting the saved choice', async () => {
@@ -244,7 +282,7 @@ test('the game sound control shares the site mute choice', async () => {
   class AudioContext {
     destination = {};
     currentTime = 0;
-    createGain() { return {gain:{value:0,cancelScheduledValues(){},setTargetAtTime(value){levels.push(value)}},connect(){}}; }
+    createGain() { return {gain:{value:0,cancelScheduledValues(){},setTargetAtTime(value){levels.push(value)},setValueAtTime(value){levels.push(value)}},connect(){}}; }
     resume() { return Promise.resolve(); }
   }
   vm.runInNewContext(code, {module,exports:module.exports,AudioContext,console:{warn(){}},fetch:async()=>({ok:false,status:404}),localStorage:{getItem:key=>saved.get(key),setItem:(key,value)=>saved.set(key,value)}});
