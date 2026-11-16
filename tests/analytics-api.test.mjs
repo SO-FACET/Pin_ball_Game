@@ -103,3 +103,10 @@ test('the join shell clears identity when its expiry poll discovers a signed-out
  assert.equal(calls.at(-1).name,'reset');assert.equal(attributes.get('data-signed-in'),false);assert.equal(attributes.get('data-signed-out'),true);
  assert.deepEqual(calls.filter(x=>x.name==='api_request').map(x=>[x.endpoint,x.outcome]),[['/api/account/session','success'],['/api/account/session','success']]);
 });
+
+test('routine signed-out join checks clear only stale identity while a rejected session still resets it',async()=>{
+ const code=await readFile(new URL('../assets/site-join.js',import.meta.url),'utf8'),calls=[],events={};let status=200;
+ const win={addEventListener:(name,fn)=>events[name]=fn,sofacetAnalytics:{track(){},clearIdentity:()=>calls.push('clear'),resetIdentity:()=>calls.push('reset')}};
+ runInNewContext(code,{window:win,document:{documentElement:{toggleAttribute(){},removeAttribute(){}}},location:{pathname:'/notify',origin:'https://site.test'},AbortController,Date,Number,Error,fetch:async()=>({ok:status===200,status,json:async()=>({signedIn:false})}),setTimeout(){},clearTimeout(){}});
+ await settled();assert.deepEqual(calls,['clear']);status=401;events.focus();await settled();assert.deepEqual(calls,['clear','reset']);
+});

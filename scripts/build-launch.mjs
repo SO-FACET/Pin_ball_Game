@@ -1,4 +1,4 @@
-import {build} from 'vite';
+import {buildBrowserPage as build} from './source-maps.mjs';
 import {withGameLoader} from './game-loader-shell.mjs';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {dirname,resolve} from 'node:path';

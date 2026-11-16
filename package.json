@@ -35,17 +35,21 @@
     "build:cookie": "node scripts/build-cookie-popup.mjs",
     "build:loader": "node scripts/build-loader.mjs",
     "build:analytics": "node scripts/build-analytics.mjs",
-    "test:analytics": "node --test tests/analytics*.test.mjs"
+    "test:analytics": "node --test tests/analytics*.test.mjs",
+    "test:sourcemaps": "node --test tests/source-map*.test.mjs",
+    "upload:sourcemaps": "node scripts/upload-source-maps.mjs"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "0.21.0",
     "libphonenumber-js": "1.13.15",
     "posthog-js": "1.447.11",
+    "posthog-node": "5.74.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "three": "0.186.1"
   },
   "devDependencies": {
+    "@posthog/cli": "0.20.0",
     "@types/three": "0.186.0",
     "esbuild-wasm": "0.25.11",
     "typescript": "7.0.2",

@@ -113,6 +113,13 @@ function showResult(){
 }
 const launchButton=$<HTMLButtonElement>('touch-launch');
 const releasedPaddles={left:false,right:false},previousTouch={left:false,right:false},paddleSoundHeld={left:false,right:false};
+const analyticsControls:{[key:string]:{held:boolean,input_method:'keyboard'|'touch'}}={left:{held:false,input_method:'keyboard'},right:{held:false,input_method:'keyboard'},launch:{held:false,input_method:'keyboard'}};
+function recordControl(control:'left'|'right'|'launch',held:boolean,input_method:'keyboard'|'touch'){
+ const previous=analyticsControls[control];if(previous.held===held)return;
+ if(held)previous.input_method=input_method;
+ track('game_control',{control:control==='launch'?'launcher':control+'_flipper',action:held?'press':'release',input_method:previous.input_method});
+ previous.held=held;
+}
 let caveEjecting=false,activePaddle:PaddleSide|null=null;
 const playPaddleSound=(side:'left'|'right')=>{void sound.unlock().then(()=>sound.play('flap',side==='left'?-.4:.4))};
 const keyboardPaddle=(side:'left'|'right')=>side==='left'?keys.has('KeyA')||keys.has('ArrowLeft'):keys.has('KeyD')||keys.has('ArrowRight');
@@ -138,7 +145,7 @@ applyDeviceView();primaryTouch.addEventListener('change',applyDeviceView);
 let cookieSettingsOpen=document.documentElement.dataset.cookieSettingsOpen==='true';
 const canTouch=(control:'paddle'|'launch')=>loaded&&!cookieSettingsOpen&&!starting&&!tutorial?.active&&!inspecting&&!physics.paused&&physics.state!=='finished'&&menu.hidden&&!registration.open&&!rewards.dialog.open&&!leaderboard.dialog.open&&(control==='paddle'||physics.active&&(physics.state==='launcher'||physics.state==='charging'));
 function paddleInput(state=touch.state){activePaddle=selectPaddle(keyboardPaddle('left')||state.left,keyboardPaddle('right')||state.right,activePaddle);return{left:activePaddle==='left',right:activePaddle==='right'}}
-function updatePaddleSound(state=touch.state){const selected=paddleInput(state);for(const side of ['left','right'] as const){const held=canTouch('paddle')&&selected[side];if(held&&!paddleSoundHeld[side])playPaddleSound(side);paddleSoundHeld[side]=held}}
+function updatePaddleSound(state=touch.state){const selected=paddleInput(state);for(const side of ['left','right'] as const){const held=canTouch('paddle')&&selected[side];if(held&&!paddleSoundHeld[side])playPaddleSound(side);paddleSoundHeld[side]=held;recordControl(side,loaded&&physics.active&&held,keyboardPaddle(side)?'keyboard':'touch')}recordControl('launch',canTouch('launch')&&(keys.has('Space')||state.space),keys.has('Space')?'keyboard':'touch')}
 const touch=connectTouchControls(canvas,launchButton,canTouch,()=>{holdCharge=false},state=>{for(const side of ['left','right'] as const){if(previousTouch[side]&&!state[side]&&!keyboardPaddle(side))releasedPaddles[side]=true;previousTouch[side]=state[side]}updatePaddleSound(state)});
 const input=()=>{const selected=paddleInput();const controls={left:!releasedPaddles.left&&selected.left,right:!releasedPaddles.right&&selected.right,space:keys.has('Space')||touch.state.space,holdCharge};releasedPaddles.left=releasedPaddles.right=false;return controls};
 const clearKeys=()=>{keys.clear();touch.clear();activePaddle=null;releasedPaddles.left=releasedPaddles.right=true;paddleSoundHeld.left=paddleSoundHeld.right=false};
@@ -276,7 +283,7 @@ async function start(){let phase='styles';try{
  phase='first-frame';
  loaded=true;view.needsRender=true;for(const id of ['start','settings'])$<HTMLButtonElement>(id).disabled=false;sync();view.render();
  if(view.renderer.getContext().isContextLost())throw new Error('WebGL context lost during game startup');
- stage.dataset.ready='true';stage.setAttribute('aria-busy','false');window.sofacetGameLoader?.ready();requestGameFrame();
+ stage.dataset.ready='true';canvas.dataset.sofacetReplayReady='true';window.dispatchEvent(new CustomEvent('sofacet:public-canvas-ready'));stage.setAttribute('aria-busy','false');window.sofacetGameLoader?.ready();requestGameFrame();
  }catch(error){loaded=false;window.sofacetGameLoader?.fail(error,phase);stage.setAttribute('aria-busy','false');$('action').hidden=true;$('error').hidden=false;$('error-detail').textContent=error instanceof Error?error.message:String(error)}}
 function sampleGameplayPerformance(now:number){
  if(!physics.active||physics.state!=='playing'||!canTouch('paddle')||navToggle.getAttribute('aria-expanded')==='true'){view.resetPerformanceSampling();return}

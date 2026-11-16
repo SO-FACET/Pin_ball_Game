@@ -13,12 +13,19 @@ import {leaderboardName} from './game-source/src/player-copy.ts';
 import {routeDocuments,canonicalHref} from './site-routes.js';
 import {normaliseArtworkCDNBase} from './shared/artwork-assets.js';
 import {analyticsConfig,analyticsUserId} from './analytics-config.mjs';
+import {createServerTelemetry,installServerErrorHandlers} from './server-telemetry.mjs';
 
 const root=resolve(fileURLToPath(new URL('.',import.meta.url)));
+const serverTelemetry=createServerTelemetry(),serverErrors=installServerErrorHandlers(serverTelemetry);
 const artworkCDN=normaliseArtworkCDNBase(process.env.ARTWORK_CDN_BASE_URL??'https://media.sofacet.com');
-const dir=resolve(process.env.DATA_DIR||resolve(root,'data'));mkdirSync(dir,{recursive:true});
+const dir=resolve(process.env.DATA_DIR||resolve(root,'data'));
 const file=resolve(dir,'players.json');
-let store=existsSync(file)?JSON.parse(readFileSync(file,'utf8')):{players:{},games:{}};
+let store;
+try{mkdirSync(dir,{recursive:true});store=existsSync(file)?JSON.parse(readFileSync(file,'utf8')):{players:{},games:{}}}catch(error){
+ if(!serverTelemetry.enabled)throw error;
+ await serverErrors.fatal(error,'startup');
+ throw error;
+}
 // ponytail: atomic local storage for one server process; use a shared database before running multiple replicas.
 function commit(change){const previous=structuredClone(store);try{change();writeFileSync(file+'.tmp',JSON.stringify(store),{mode:0o600});renameSync(file+'.tmp',file)}catch(error){store=previous;throw error}}
 function fail(status,message){throw new ServiceError(status,message)}
@@ -145,6 +152,8 @@ const server=createServer(async(request,response)=>{
    response.writeHead(308,{Location:'https://sofacet.com'+requested.pathname+requested.search,'Cache-Control':'no-cache'});response.end();return;
   }
   path=decodeURIComponent(requested.pathname);
+  // Source maps contain private source bodies and are never public assets.
+  if(/\.map(?:\.(?:br|gz))?$/i.test(path))fail(404,'File not found.');
   if(path==='/health'&&(request.method==='GET'||request.method==='HEAD'))return json(response,200,{status:'ok'});
   if(path==='/api/analytics-config'&&request.method==='GET')return json(response,200,analyticsConfig());
   if(path==='/api/media-config'&&request.method==='GET')return json(response,200,{baseURL:process.env.MEDIA_CDN_BASE_URL||'',artworkBaseURL:artworkCDN,entranceManifestURL:process.env.ENTRANCE_VIDEO_MANIFEST_URL||'',entrance4kManifestURL:process.env.ENTRANCE_VIDEO_4K_MANIFEST_URL||''});
@@ -192,10 +201,12 @@ const server=createServer(async(request,response)=>{
   response.writeHead(status,headers);
   if(request.method==='HEAD'||info.size===0){response.end();return;}
   const stream=createReadStream(delivery,{start,end});
-  stream.on('error',()=>response.destroy());
+  stream.on('error',error=>{serverTelemetry.capture(error,{source:'static_stream',path,method:request.method,status:500});response.destroy()});
   response.on('close',()=>stream.destroy());
   stream.pipe(response);
- }catch(error){if(!response.headersSent){
+ }catch(error){
+  if(!(error instanceof ServiceError)||error.status>=500)serverTelemetry.capture(error,{source:'request',path,method:request.method,status:error instanceof ServiceError?error.status:500});
+  if(!response.headersSent){
   const known=error instanceof ServiceError;
   if(known&&error.status===404&&!path.startsWith('/api/')&&['GET','HEAD'].includes(request.method)&&(request.headers.accept||'').includes('text/html')){
    const document=readFileSync(resolve(root,'404.html'));
@@ -207,5 +218,6 @@ const server=createServer(async(request,response)=>{
  }else response.end();}
 });
 const port=Number(process.env.PORT||8766),host=process.env.HOST||'127.0.0.1';
+if(serverTelemetry.enabled)server.on('error',error=>serverErrors.fatal(error,'startup'));
 server.listen(port,host,()=>console.log(`SOFACET website and pinball: http://${host}:${server.address().port}`));
-for(const signal of ['SIGINT','SIGTERM'])process.on(signal,()=>server.close(()=>process.exit(0)));
+for(const signal of ['SIGINT','SIGTERM'])process.on(signal,()=>server.close(()=>serverTelemetry.shutdown().finally(()=>process.exit(process.exitCode===1?1:0))));

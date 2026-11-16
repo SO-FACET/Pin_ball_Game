@@ -1,4 +1,4 @@
-import {build} from 'esbuild-wasm';
+import {buildBrowserScripts as build} from './source-maps.mjs';
 import {withGameLoader} from './game-loader-shell.mjs';
 import {withEntrancePresentation} from './entrance-presentation.mjs';
 import {brotliCompressSync,constants} from 'node:zlib';
@@ -20,8 +20,7 @@ const result=await build({absWorkingDir:root,entryPoints:{entry:'entrance-source
   bundle:true,splitting:true,format:'esm',target:'es2022',minify:true,write:false,metafile:true,
   external:['/assets/*','/frame-placement.js','/sounds/*'],
   entryNames:'entry-[hash]',chunkNames:'chunk-[hash]',assetNames:'asset-[hash]',
-});
-for(const file of result.outputFiles)await writeFile(file.path,file.contents);
+},{label:'entrance'});
 const entry=Object.entries(result.metafile.outputs).find(([,file])=>file.entryPoint==='entrance-source/entrance.mjs')?.[0];
 if(!entry)throw Error('Entrance build did not produce an entry module.');
 const css=await readFile(resolve(root,'entrance-source/entrance.css'),'utf8');

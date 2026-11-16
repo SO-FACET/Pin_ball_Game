@@ -1,9 +1,14 @@
 (()=>{
  if(window.sofacetCookiePreferences)return;
  const key='sofacet-cookie-preferences';
- const defaults=()=>({essential:true,analytics:false,advertising:false});
+ const defaults=()=>({essential:true,analytics:false,advertising:false,recording:false});
  function read(){
-  try{const value=JSON.parse(localStorage.getItem(key));if(value?.version===1&&Number.isFinite(value.expires)&&value.expires>Date.now()&&typeof value.analytics==='boolean'&&typeof value.advertising==='boolean')return value}catch{}
+  try{
+   const value=JSON.parse(localStorage.getItem(key));
+   if(![1,2].includes(value?.version)||!Number.isFinite(value.expires)||value.expires<=Date.now()||typeof value.analytics!=='boolean'||typeof value.advertising!=='boolean'||value.version===2&&typeof value.recording!=='boolean')return null;
+   // An older Analytics choice did not include the new Session replay choice.
+   return {version:value.version,essential:true,analytics:value.analytics,advertising:value.advertising,recording:value.version===2&&value.analytics&&value.recording===true,expires:value.expires};
+  }catch{}
   return null;
  }
  let saved=read(),choice=saved||defaults(),settingsOpen=false,persisted=true,opener,render=()=>{};
@@ -17,9 +22,10 @@
  function publish(){
   document.documentElement.dataset.analytics=String(choice.analytics);
   document.documentElement.dataset.advertising=String(choice.advertising);
+  document.documentElement.dataset.recording=String(choice.analytics&&choice.recording);
   window.dispatchEvent(new CustomEvent('sofacet:cookie-preferences',{detail:{...choice,essential:true}}));
  }
- function paint(){render({showNotice:landing&&!saved&&!settingsOpen,settingsOpen,choice,persisted,open,close,save})}
+ function paint(){render({showNotice:landing&&(!saved||saved.version===1&&saved.analytics)&&!settingsOpen,settingsOpen,choice,persisted,open,close,save})}
  function open(){
   if(window.top!==window){try{return window.top.sofacetCookiePreferences.open()}catch{return}}
   if(settingsOpen)return;
@@ -30,15 +36,15 @@
   settingsOpen=false;modalState(false);paint();
   if(opener?.isConnected)opener.focus({preventScroll:true});
  }
- function save(analytics,advertising){
+ function save(analytics,advertising,recording=false){
   const expires=new Date();expires.setFullYear(expires.getFullYear()+1);
-  choice={version:1,essential:true,analytics,advertising,expires:expires.getTime()};
+  choice={version:2,essential:true,analytics:analytics===true,advertising:advertising===true,recording:analytics===true&&recording===true,expires:expires.getTime()};
   persisted=true;
   try{localStorage.setItem(key,JSON.stringify(choice))}catch{persisted=false}
   saved=choice;publish();
   if(settingsOpen&&persisted)close();else paint();
  }
- window.sofacetCookiePreferences={open,allows:category=>category==='essential'||['analytics','advertising'].includes(category)&&choice[category]===true,mount(renderer){render=renderer;paint()}};
+ window.sofacetCookiePreferences={open,allows:category=>category==='essential'||category==='recording'&&choice.analytics===true&&choice.recording===true||['analytics','advertising'].includes(category)&&choice[category]===true,mount(renderer){render=renderer;paint()}};
  publish();
  window.addEventListener('storage',event=>{if(event.key===key||event.key===null){saved=read();choice=saved||defaults();persisted=true;publish();paint()}});
  document.addEventListener('click',event=>{
