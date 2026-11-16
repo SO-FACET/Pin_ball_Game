@@ -22,13 +22,13 @@ test('a ready world skips the remaining loading messages and stops the timer imm
 test('all page builds receive one complete share card and real favicons',()=>{
  const source='<html><head><title>Page</title><link rel="icon" href="data:,"></head><body></body></html>';
  const html=withSiteMetadata(source,'https://example.test/');
- assert.match(html,/og:image" content="https:\/\/example.test\/assets\/sofacet-share-20261114-v2.jpg"/);
+ assert.match(html,/og:image" content="https:\/\/example.test\/assets\/sofacet-share-20261116-v3.jpg"/);
  assert.match(html,/og:image:width" content="1200"/);assert.match(html,/og:image:height" content="669"/);
  assert.match(html,/og:image:type" content="image\/jpeg"/);
  assert.match(html,/SO\/ FACET. What's yours\?/);assert.match(html,/summary_large_image/);assert.doesNotMatch(html,/href="data:,"/);
  assert.ok(html.indexOf('property="og:image"')<html.indexOf('<title>'));
  assert.equal(withSiteMetadata(html,'https://example.test/'),html);assert.throws(()=>withSiteMetadata(source,'javascript:alert(1)'));
- const image=readFileSync(new URL('../assets/sofacet-share-20261114-v2.jpg',import.meta.url));assert.equal(image.readUInt16BE(0),0xffd8);assert.ok(image.byteLength<1_000_000);
+ const image=readFileSync(new URL('../assets/sofacet-share-20261116-v3.jpg',import.meta.url));assert.equal(image.readUInt16BE(0),0xffd8);assert.ok(image.byteLength<1_000_000);
 });
 test('public sign-in cannot trust preview storage or use a demonstration verification code',()=>{
  const source=readFileSync(new URL('../account-source/src/main.jsx',import.meta.url),'utf8');
@@ -40,6 +40,6 @@ test('unconfigured page builds use the launch domain for social previews',t=>{
  t.after(()=>{if(site===undefined)delete process.env.SITE_URL;else process.env.SITE_URL=site;if(app===undefined)delete process.env.APP_ORIGIN;else process.env.APP_ORIGIN=app});
  delete process.env.SITE_URL;delete process.env.APP_ORIGIN;
  const html=withSiteMetadata('<html><head></head><body></body></html>');
- assert.match(html,/og:image" content="https:\/\/sofacet\.com\/assets\/sofacet-share-20261114-v2.jpg"/);
- assert.match(html,/twitter:image" content="https:\/\/sofacet\.com\/assets\/sofacet-share-20261114-v2.jpg"/);
+ assert.match(html,/og:image" content="https:\/\/sofacet\.com\/assets\/sofacet-share-20261116-v3.jpg"/);
+ assert.match(html,/twitter:image" content="https:\/\/sofacet\.com\/assets\/sofacet-share-20261116-v3.jpg"/);
 });

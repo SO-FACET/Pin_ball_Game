@@ -95,6 +95,7 @@ test('progress loading keeps retry errors and blocked storage cannot break the g
 test('all generated shells contain the approved React card artwork and replace the old ball',()=>{
  const shell=withGameLoader('<html><head></head><body></body></html>',{game:true,entry:'./assets/game.js'});
  assert.match(shell,/data-game-entry="\.\/assets\/game.js"/);assert.match(shell,/game-loader-cards-root/);assert.doesNotMatch(shell,/<canvas|id="loading-statement"/);assert.equal((shell.match(/class="sofacet-card"/g)||[]).length,3);
+ assert.doesNotMatch(shell,/Polishing your table/);
  assert.equal((withGameLoader(shell,{game:true,entry:'./assets/game.js'}).match(/id="game-loading-screen"/g)||[]).length,1);
  for(const file of ['index.html','play.html','about.html','account.html','faq.html','membership.html','privacy.html','terms.html','launching-soon.html','first-cuts-confirmation.html','entrance-3d.html','notify.html','404.html']){
   const html=readFileSync(new URL('../'+file,import.meta.url),'utf8'),markup=html.match(/<!-- game-loader-body -->([\s\S]*?)<!-- \/game-loader-body -->/)?.[1];assert.match(markup,/game-loader-cards-root/,file);assert.doesNotMatch(markup,/<canvas|id="loading-statement"/,file);
@@ -109,6 +110,7 @@ test('handoff waits for both the table and the three cards, in either order',asy
   assert.equal(view.stage.inert,true);assert.equal(view.renders.at(-1).active,true);assert.equal(view.root.hidden,false);
   if(reduced)view.finishCards();else view.api.ready();
   assert.equal(handoffs,0);assert.equal(view.root.hidden,false);assert.equal(view.stage.inert,true);
+  assert.equal(view.renders.at(-1).element.hidden,false,'The final card stays visible while the table loads');
   if(reduced)view.api.ready();else view.finishCards();
   view.api.ready();view.finishCards();assert.equal(handoffs,1);assert.equal(view.stage.dataset.ready,'true');assert.equal(view.stage.inert,false);assert.equal(view.root.dataset.state,'leaving');view.flushFade();assert.equal(view.root.hidden,true);assert.equal(view.renders.at(-1).active,false);
  }

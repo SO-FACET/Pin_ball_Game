@@ -53,6 +53,18 @@ test('server validates details and ignores no client-supplied score or reward',a
  const policy=process.env.MEMBERSHIP_TERMS_URL;delete process.env.MEMBERSHIP_TERMS_URL;try{await assert.rejects(f.api('/api/membership',payload,'one'),status(503))}finally{process.env.MEMBERSHIP_TERMS_URL=policy}
  f.store.games[gameId].verified=false;await assert.rejects(f.api('/api/membership',payload,'one'),status(409));assert.equal(f.calls.length,0);
 });
+test('a verified score under 10 cannot be saved',async()=>{
+ const f=setup(),verificationToken=await verified(f);
+ for(const score of [0,9]){
+  f.store.games[gameId].score=score;
+  await assert.rejects(f.api('/api/membership',{...valid,verificationToken},'one'),status(409));
+  assert.equal(f.calls.length,0);
+ }
+ f.store.games[gameId].score=10;
+ const result=await f.api('/api/membership',{...valid,verificationToken},'one');
+ assert.equal(result.savedPoints,10);
+ assert.equal(f.calls[0].points,1);
+});
 test('verified scores credit 10 game points per ₹1, once; improvements grant only the difference',async()=>{
  const f=setup(),verificationToken=await verified(f),payload={...valid,verificationToken};
  const result=await f.api('/api/membership',payload,'one');

@@ -1,4 +1,4 @@
-import { siteSound, CHESS_HIT_FRAME } from './sounds/site-audio.js?v=frames-a9c04ad83c00';
+import { siteSound, CHESS_HIT_FRAME } from './sounds/site-audio.js?v=frames-16f04ba0a8ce';
 import { finishLoading } from './assets/loading/intro.js?v=frames-c6e43a3d8f7f';
 import { createLandingCopy } from './assets/kinetic-copy.js?v=frames-9defbfc30c94';
 import { createFrameSource } from './assets/frame-source.js?v=frames-23eb123206c8';

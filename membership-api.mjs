@@ -70,7 +70,7 @@ export function createMembershipApi({ getStore, commit, phone, publicPlayer, pro
   }
   function gameFor(gameId, id, customerId) {
     const game = getStore().games[gameId];
-    if (!game || game.player !== id || !game.verified || !Number.isSafeInteger(game.score) || game.score < 0) fail(409, 'Your score is still being verified. Please try again.');
+    if (!game || game.player !== id || !game.verified || !Number.isSafeInteger(game.score) || game.score < 10) fail(409, 'You need at least 10 SO/ COINS to save your score.');
     if (game.rewardCustomer && game.rewardCustomer !== customerId) fail(409, 'This game has already been saved to another membership.');
     return game;
   }

@@ -91,6 +91,7 @@ for(const [parent,dependencies] of [
  ['assets/worker-frame-decoder.js',['./frame-decoder-worker.js','./frame-timing.js']],
  ['assets/frame-source.js',['./video-playback.js','./worker-frame-decoder.js']],
  ['assets/loading/intro.js',['./reveal.js']],
+ ['entrance-source/entrance.mjs',['/sounds/site-audio.js']],
  ['sequence.js',['./sounds/site-audio.js','./assets/loading/intro.js','./assets/frame-cache.js','./assets/frame-pacing.js','./assets/buffer-pacing.js','./assets/native-frame-scheduler.js','./assets/frame-source.js','./assets/video-playback.js','./assets/kinetic-copy.js']],
  ['viewer.js',['./sequence.js','./assets/loading/intro.js','./plate-hover.js','./reference-appearance.js','./assets/performance-overlay.js','./assets/media-delivery.js']],
  ['index.html',['./viewer.js','./assets/loading/intro.js','./style.css']],
@@ -98,7 +99,7 @@ for(const [parent,dependencies] of [
  const file=new URL(parent,root);let source=await readFile(file,'utf8');
  for(const dependency of dependencies){
   if(!source.includes(dependency))throw Error('Missing landing dependency: '+dependency);
-  const hash=createHash('sha256').update(await readFile(new URL(dependency,file))).digest('hex').slice(0,12);
+  const hash=createHash('sha256').update(await readFile(new URL(dependency.startsWith('/')?'.'+dependency:dependency,dependency.startsWith('/')?root:file))).digest('hex').slice(0,12);
   const escaped=dependency.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
   source=source.replace(new RegExp(escaped+'(?:\\?v=[\\w-]+)?','g'),dependency+'?v=frames-'+hash);
  }
