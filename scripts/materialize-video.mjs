@@ -18,7 +18,7 @@ if(!pointer){
  // This public mirror contains the exact video verified below. A deployment
  // from another repository has a different commit SHA, absent from the mirror.
  const revision='f9ffafaa7bf3e4a11438b25945857a41f2229cad';
- const url=`https://media.githubusercontent.com/media/sofacettech/Pin_ball_Game/${encodeURIComponent(revision)}/assets/${filename}`;
+ const url=`https://media.githubusercontent.com/media/SO-FACET/Pin_ball_Game/${encodeURIComponent(revision)}/assets/${filename}`;
  console.log(`Downloading journey video from GitHub LFS (${pointer[2]} bytes).`);
  const response=await fetch(url,{signal:AbortSignal.timeout(300_000)});
  if(!response.ok)throw new Error(`GitHub LFS download failed: HTTP ${response.status}`);

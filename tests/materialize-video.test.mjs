@@ -17,7 +17,7 @@ async function materialize(t,corrupt=false){
  const mock=join(root,'fetch-fixture.mjs');
  await writeFile(mock,`import assert from 'node:assert/strict';
 globalThis.fetch=async url=>{
- assert.equal(url,'https://media.githubusercontent.com/media/sofacettech/Pin_ball_Game/f9ffafaa7bf3e4a11438b25945857a41f2229cad/assets/sofacet-experience.mp4');
+ assert.equal(url,'https://media.githubusercontent.com/media/SO-FACET/Pin_ball_Game/f9ffafaa7bf3e4a11438b25945857a41f2229cad/assets/sofacet-experience.mp4');
  return new Response(Buffer.from(${JSON.stringify((corrupt?Buffer.alloc(bytes.length):bytes).toString('base64'))},'base64'));
 };`);
  const result=spawnSync(process.execPath,['--import',mock,join(root,'scripts/materialize-video.mjs')],{
