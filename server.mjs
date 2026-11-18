@@ -45,7 +45,7 @@ function name(value){if(typeof value!=='string')fail(400,'Please enter your play
 function phone(value){if(typeof value!=='string')fail(400,'Please enter your Indian phone number.');let digits=value.replace(/[\s()-]/g,'');if(digits.startsWith('+91'))digits=digits.slice(3);if(/^0\d{10}$/.test(digits))digits=digits.slice(1);if(!/^\d{10}$/.test(digits))fail(400,'Membership currently supports Indian phone numbers (+91, followed by 10 digits).');return '+91'+digits}
 const requests=new Map();
 function rateLimit(request){const now=Date.now(),key=request.socket.remoteAddress;for(const [ip,bucket] of requests)if(now>bucket.until)requests.delete(ip);const bucket=requests.get(key)||{count:0,until:now+60000};bucket.count++;requests.set(key,bucket);if(bucket.count>120)fail(429,'Too many requests. Please wait a minute and try again.')}
-function sameOrigin(request){const expected=process.env.APP_ORIGIN||'http://'+request.headers.host;if(request.headers.origin!==expected)fail(403,'Please submit this request from the game.');if(!request.headers['content-type']?.startsWith('application/json'))fail(415,'Please send JSON.');}
+function sameOrigin(request){const expected=process.env.APP_ORIGIN||'http://'+request.headers.host;const shopPreview=process.env.APP_ORIGIN==='https://sofacet.com'&&request.headers.host==='shopsofacet.com'&&request.headers.origin==='https://shopsofacet.com';if(request.headers.origin!==expected&&!shopPreview)fail(403,'Please submit this request from the game.');if(!request.headers['content-type']?.startsWith('application/json'))fail(415,'Please send JSON.');}
 function trusted(request){const secret=process.env.REWARDS_ADMIN_SECRET;if(!secret)fail(503,'Redeemable rewards are disabled.');const actual=Buffer.from(request.headers.authorization||''),expected=Buffer.from('Bearer '+secret);if(actual.length!==expected.length||!timingSafeEqual(actual,expected))fail(401,'Unauthorized.');}
 function gameBoard(id){
  const ranked=Object.entries(store.players).filter(([,p])=>p.bestVerified===true&&Number.isSafeInteger(p.best)).sort(([a,p],[b,q])=>q.best-p.best||p.bestAt-q.bestAt||a.localeCompare(b));
@@ -148,7 +148,7 @@ const server=createServer(async(request,response)=>{
   const requested=new URL(request.url,'http://localhost');
   // Enable the launch aliases only with the production origin. Keep Railway
   // health checks and previews on their own hostname, and never redirect POSTs.
-  if(process.env.APP_ORIGIN==='https://sofacet.com'&&['GET','HEAD'].includes(request.method)&&/^(?:www\.sofacet\.com|shopsofacet\.com)(?::\d+)?$/i.test(request.headers.host||'')){
+  if(process.env.APP_ORIGIN==='https://sofacet.com'&&['GET','HEAD'].includes(request.method)&&/^(?:www\.sofacet\.com)(?::\d+)?$/i.test(request.headers.host||'')){
    response.writeHead(308,{Location:'https://sofacet.com'+requested.pathname+requested.search,'Cache-Control':'no-cache'});response.end();return;
   }
   path=decodeURIComponent(requested.pathname);

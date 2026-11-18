@@ -52,3 +52,13 @@ test('whole-pixel browser scrolling can reach the exact final pose',()=>{
  assert.equal(map.scrollAtFrame(2164),map.travel);
  assert.ok(map.frameAtScroll(map.travel-1)<2164,'the ending stays scrollable until the bottom');
 });
+
+ test('temporary shop speed covers the same journey in one third of the scroll distance',()=>{
+ const normal=createJourneyScrollMap(),shop=createJourneyScrollMap(334,2164,3);
+ assert.equal(normal.travel,8579);assert.equal(shop.travel,2860);
+ for(const frame of [334,700,780,1000,1560,2000,2164]){
+ assert.ok(Math.abs(shop.scrollAtFrame(frame)*3-normal.scrollAtFrame(frame))<=1);
+ assert.ok(Math.abs(shop.frameAtScroll(shop.scrollAtFrame(frame))-frame)<1e-8);
+ }
+ assert.equal(shop.frameAtScroll(shop.travel),2164);
+});

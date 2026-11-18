@@ -12,7 +12,9 @@ import { captureError } from '../shared/analytics.js';
 const $=id=>document.getElementById(id);
 const firstFrame=JOURNEY_START_FRAME,lastFrame=CHESS_HIT_FRAME;
 const completion=createJourneyCompletion(lastFrame);
-const journeyScroll=createJourneyScrollMap(firstFrame,lastFrame),travel=journeyScroll.travel;
+// Temporary faster journey on the shop domain; the primary site keeps its pacing.
+const scrollSpeed=location.hostname==='shopsofacet.com'?3:1;
+const journeyScroll=createJourneyScrollMap(firstFrame,lastFrame,scrollSpeed),travel=journeyScroll.travel;
 const reduced=matchMedia('(prefers-reduced-motion: reduce)');
 const coarse=matchMedia('(any-pointer: coarse)');
 const parameters=new URLSearchParams(location.search);
