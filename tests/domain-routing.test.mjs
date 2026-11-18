@@ -29,21 +29,21 @@ async function withDomainSite(appOrigin,check){
 
 test('launch aliases redirect safe requests to the primary domain with the path and query intact',async()=>{
  await withDomainSite('https://sofacet.com',async request=>{
-  for(const host of ['www.sofacet.com','shopsofacet.com','WWW.SOFACET.COM:443'])for(const method of ['GET','HEAD']){
+  for(const host of ['www.sofacet.com','WWW.SOFACET.COM:443'])for(const method of ['GET','HEAD']){
    const path='/game?from=score&next=%2Fclaim',response=await request(host,path,{method});
    assert.equal(response.status,308);
    assert.equal(response.headers.location,'https://sofacet.com'+path);
    assert.equal(response.headers['cache-control'],'no-cache');
    assert.equal(response.body,'');
   }
-  const encoded=await request('shopsofacet.com','/contact?message=a%20b%26c');
+  const encoded=await request('www.sofacet.com','/contact?message=a%20b%26c');
   assert.equal(encoded.headers.location,'https://sofacet.com/contact?message=a%20b%26c');
  });
 });
 
 test('the primary domain, Railway health checks and preview URLs never redirect to an alias',async()=>{
  await withDomainSite('https://sofacet.com',async request=>{
-  for(const host of ['sofacet.com','facet-pinball-production.up.railway.app','127.0.0.1','www.sofacet.com.evil.test']){
+  for(const host of ['shopsofacet.com','sofacet.com','facet-pinball-production.up.railway.app','127.0.0.1','www.sofacet.com.evil.test']){
    const page=await request(host,'/game');assert.equal(page.status,200);assert.equal(page.headers.location,undefined);
    const health=await request(host,'/health');assert.equal(health.status,200);assert.deepEqual(JSON.parse(health.body),{status:'ok'});
    const config=await request(host,'/api/media-config');assert.equal(config.status,200);assert.equal(config.headers.location,undefined);
@@ -63,10 +63,14 @@ test('launch redirects stay disabled until the new APP_ORIGIN is active',async()
 
 test('domain redirects do not broaden POST origins or forward unsafe requests',async()=>{
  await withDomainSite('https://sofacet.com',async request=>{
-  for(const origin of ['https://shopsofacet.com','https://www.sofacet.com','https://sofacet.com.evil.test','http://sofacet.com',undefined]){
+  for(const origin of ['https://www.sofacet.com','https://sofacet.com.evil.test','http://sofacet.com',undefined]){
    const response=await request('shopsofacet.com','/api/first-cuts',{method:'POST',headers:{'Content-Type':'application/json',...(origin?{Origin:origin}:{})},body:'{}'});
    assert.equal(response.status,403);assert.equal(response.headers.location,undefined);
   }
+  const shop=await request('shopsofacet.com','/api/first-cuts',{method:'POST',headers:{Origin:'https://shopsofacet.com','Content-Type':'application/json'},body:'{}'});
+  assert.equal(shop.status,400,'shop same-origin POST reaches validation');
+  const cross=await request('sofacet.com','/api/first-cuts',{method:'POST',headers:{Origin:'https://shopsofacet.com','Content-Type':'application/json'},body:'{}'});
+  assert.equal(cross.status,403,'shop origin cannot POST to the primary host');
   const accepted=await request('sofacet.com','/api/first-cuts',{method:'POST',headers:{Origin:'https://sofacet.com','Content-Type':'application/json'},body:'{}'});
   assert.equal(accepted.status,400,'a canonical-origin request reaches form validation');
   assert.match(JSON.parse(accepted.body).message,/full name/i);
