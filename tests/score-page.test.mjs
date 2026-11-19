@@ -47,6 +47,18 @@ test('the three React actions invoke their existing callbacks once',()=>{
  for(const id of ['rewards-register','rewards-retry','rewards-leaderboard'])nodes.find(node=>node.props.id===id).props.onClick();
  assert.deepEqual(calls,['save','replay','leaderboard']);
 });
+test('Save Your SO/ COINS popup and reopen button interact correctly',()=>{
+ const calls=[],props={result:result(4800),isMember:false,onSave:()=>calls.push('save'),onReplay:()=>calls.push('replay'),onLeaderboard:()=>calls.push('leaderboard')};
+ const html=renderToStaticMarkup(React.createElement(ScorePage,props));
+ assert.match(html,/Save Your <span class="save-coins-accent">.*SO\/ COINS.*<\/span>!/);
+ assert.match(html,/id="save-coins-login"/);assert.match(html,/id="save-coins-later"/);
+ assert.match(html,/id="rewards-reopen-save"/);assert.match(html,/SAVE YOUR .*SO\/ COINS/);
+});
+test('Save Your SO/ COINS popup and reopen button are not shown for members',()=>{
+ const props={result:result(4800),isMember:true,onSave:()=>{},onReplay:()=>{},onLeaderboard:()=>{}};
+ const html=renderToStaticMarkup(React.createElement(ScorePage,props));
+ assert.doesNotMatch(html,/id="save-coins-modal"/);assert.doesNotMatch(html,/id="rewards-reopen-save"/);
+});
 
 async function controllerFixture(){
  const nodes=new Map(),events=new Map(),captured={},analytics=[];

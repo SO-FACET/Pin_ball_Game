@@ -12,7 +12,7 @@ export function captureGameResult(finalScore:number,gameId?:string):CompletedGam
  const whole=Math.trunc(finalScore),points=Number.isSafeInteger(whole)?Math.max(0,whole):0;
  return Object.freeze({points,rewardValue:rewardFromPoints(points),completedAt:Date.now(),status:'completed',gameId});
 }
-export function connectPostGameRewards(onRegister:(result:CompletedGameResult,opener:HTMLElement)=>void,onRetry:()=>void,onLeaderboard:()=>void=()=>{}){
+export function connectPostGameRewards(onRegister:(result:CompletedGameResult,opener:HTMLElement)=>void,onRetry:()=>void,onLeaderboard:()=>void=()=>{},isMember:()=>boolean=()=>false){
  const $=<T extends HTMLElement>(id:string)=>document.getElementById(id) as T;
  const dialog=$<HTMLDialogElement>('post-game-rewards'),header=document.querySelector<HTMLElement>('body > header')!,toggle=$('nav-toggle');
  const views={result:$('rewards-result'),leave:$('rewards-leave')};
@@ -26,7 +26,7 @@ export function connectPostGameRewards(onRegister:(result:CompletedGameResult,op
   if(view==='result')setScreenRoute('/reward',{replace:false});
   current=view;dialog.dataset.view=view;for(const [key,element] of Object.entries(views))element.hidden=key!==view;
   showNoticeArtwork(view==='result'?null:view);
-  if(view==='result')scorePage.render(result!);else scorePage.clear();
+  if(view==='result')scorePage.render(result!,isMember());else scorePage.clear();
   const heading=views[view].querySelector<HTMLElement>('h1')!;
   dialog.setAttribute('aria-labelledby',heading.id);
   dialog.setAttribute('aria-describedby',view==='result'?(result!.points<10?'rewards-score rewards-low-copy':'rewards-score rewards-value-line rewards-expiry'):'rewards-leave-copy');
