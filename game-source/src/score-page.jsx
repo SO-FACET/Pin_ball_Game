@@ -34,12 +34,7 @@ export function ScorePage(props) {
       type="button"
       data-analytics-control="reopen_save_coins"
       style={showSavePopup ? {display:'none'} : undefined}
-      onClick={() => {
-       const modal = typeof document !== 'undefined' ? document.getElementById('save-coins-modal') : null;
-       if (modal) modal.style.display = 'grid';
-       const reopenBtn = typeof document !== 'undefined' ? document.getElementById('rewards-reopen-save') : null;
-       if (reopenBtn) reopenBtn.style.display = 'none';
-      }}
+      onClick={onSave}
      >
       <span className="coin-sparkle">✦</span>
       <span>SAVE YOUR SO/ COINS</span>

@@ -501,7 +501,8 @@ body[data-menu-open] #pause-panel{visibility:hidden}
 #game-menu #menu-close{float:right;min-height:44px}#game-menu select{font-size:16px}
 body:has(#table-intro:not([hidden])) #stage .side-panel #message{display:none}
 @media(max-height:700px){#table-intro h1{font-size:20px;margin:6px 0}#table-intro .table-facts{margin-bottom:8px}}
-#leaderboard-save{display:none!important}
+#leaderboard-save{min-height:44px;padding:10px 20px;border:1px solid #d9ed37;background:transparent;color:#e9f59e;font-size:14px;cursor:pointer}
+#leaderboard-save:hover{background:#d9ed3722}
 @media(max-width:600px){
  .leaderboard-heading img{width:90%;margin-inline:auto}
  .leaderboard-table{font-size:12px}

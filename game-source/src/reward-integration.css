@@ -47,7 +47,7 @@
 }
 
 /* Post-Game Persistent "SAVE YOUR SO/ COINS" Action Button */
-.save-coins-reopen-btn{position:relative;flex:1 1 0%;min-width:0;display:flex;align-items:center;justify-content:center;gap:8px;height:54px;margin-top:0;padding:0 14px;background:linear-gradient(135deg,#1f1333 0%,#2d184a 100%);border:1px solid #d9ed37;border-radius:0;color:#f6ff9c;font-family:'Brilliant Cut Pro','Josefin Sans',sans-serif;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;box-shadow:0 0 16px #d9ed3733,inset 0 0 10px #d9ed3720;transition:all .25s ease}
+.save-coins-reopen-btn{position:relative;pointer-events:auto;flex:1 1 0%;min-width:0;display:flex;align-items:center;justify-content:center;gap:8px;height:54px;margin-top:0;padding:0 14px;background:linear-gradient(135deg,#1f1333 0%,#2d184a 100%);border:1px solid #d9ed37;border-radius:0;color:#f6ff9c;font-family:'Brilliant Cut Pro','Josefin Sans',sans-serif;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;box-shadow:0 0 16px #d9ed3733,inset 0 0 10px #d9ed3720;transition:all .25s ease}
 .save-coins-reopen-btn:hover{background:linear-gradient(135deg,#2e1c4d 0%,#3f206a 100%);color:#ffffff;border-color:#efff61;box-shadow:0 0 24px #d9ed3766}
 .save-coins-reopen-btn:active{background:#3f206a}
 .save-coins-reopen-btn .coin-sparkle{color:#d9ed37;font-size:12px}
