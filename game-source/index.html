@@ -369,7 +369,21 @@ body[data-game-loading] .menu-panel:not([data-open]){visibility:hidden;pointer-e
    <table class="leaderboard-table" aria-labelledby="leaderboard-title"><thead><tr><th scope="col"><span>Rank</span></th><th scope="col"><span>Name</span></th><th scope="col" id="leaderboard-score-label"><span>Score</span></th></tr></thead><tbody id="leaderboard-rows"></tbody></table>
    <div class="leaderboard-note"><p id="leaderboard-summary"></p><p id="leaderboard-status" role="status"></p><button id="leaderboard-retry" hidden>Try again</button></div>
   </div>
-  <div class="leaderboard-actions"><button id="leaderboard-save" type="button" hidden>SAVE MY <span class="coin-word">SO/ COINS</span></button><button id="leaderboard-play">Play again</button></div>
+  <div class="leaderboard-actions"><button id="leaderboard-save" type="button" hidden style="display:none!important">SAVE MY <span class="coin-word">SO/ COINS</span></button><button id="leaderboard-play">Play again</button></div>
+ </dialog>
+
+ <dialog id="leaderboard-auth-dialog" class="game-modal-dialog" aria-labelledby="leaderboard-auth-title" aria-describedby="leaderboard-auth-desc">
+  <div class="game-modal-backdrop" aria-hidden="true"></div>
+  <div class="game-modal-card">
+   <div class="game-modal-corner corner-tl" aria-hidden="true"></div>
+   <div class="game-modal-corner corner-br" aria-hidden="true"></div>
+   <h3 id="leaderboard-auth-title" class="game-modal-heading">Log in to view rankings</h3>
+   <p id="leaderboard-auth-desc" class="game-modal-body">Log in or create an account to view ranks beyond the top 10 and track your SO/ COINS across games.</p>
+   <div class="game-modal-actions">
+    <button id="leaderboard-auth-login" class="game-modal-btn primary" type="button">Log In</button>
+    <button id="leaderboard-auth-cancel" class="game-modal-btn secondary" type="button">Cancel</button>
+   </div>
+  </div>
  </dialog>
 
 

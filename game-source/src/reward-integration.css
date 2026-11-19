@@ -23,3 +23,42 @@
  #post-game-rewards .design-rewards:is([data-loaded="false"],.mobile-art-intro) .text-layer :is(.brand,.eyebrow,#rewards-heading,.amount-line,.conversion,.rule,.notice,.buttons,.leaderboard){animation-play-state:paused}
  #post-game-rewards .design-rewards.mobile-art-intro .text-layer :is(.buttons,.leaderboard){visibility:hidden}
 }
+
+/* Save Your SO/ COINS Popup */
+.save-coins-popup-backdrop{position:fixed;inset:0;z-index:90;display:grid;place-items:center;background:#030108bb;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);animation:save-coins-fade 250ms ease-out both}
+.save-coins-popup-card{position:relative;width:min(440px,calc(100vw - 32px));background:radial-gradient(ellipse at 50% 10%,#26153b,#100b21 70%);border:1px solid #7538a0;border-radius:14px;padding:36px 30px 28px;color:#f5edff;text-align:center;box-shadow:0 24px 60px #000c,0 0 35px #a440e830,inset 0 0 0 1px #a440e835;animation:save-coins-pop 300ms cubic-bezier(.16,1,.3,1) both}
+.save-coins-corner{position:absolute;width:18px;height:18px;border-color:#d9ed37;border-style:solid;pointer-events:none}
+.save-coins-corner.corner-tl{top:8px;left:8px;border-width:2px 0 0 2px}
+.save-coins-corner.corner-br{bottom:8px;right:8px;border-width:0 2px 2px 0}
+.save-coins-heading{margin:0 0 16px;font-family:'Josefin Sans',sans-serif;font-size:26px;font-weight:700;letter-spacing:.02em;color:#f6f2ff;line-height:1.2;text-shadow:0 0 20px #d9ed3755}
+.save-coins-accent{display:inline-block;background:linear-gradient(135deg,#d9ed37 0%,#fffb85 50%,#c6ff00 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 0 12px #d9ed3780);font-weight:800}
+.save-coins-desc{margin:0 0 26px;font-family:'Josefin Sans',sans-serif;font-size:14px;line-height:1.6;color:#e2d4ee}
+.save-coins-actions{display:flex;gap:12px;justify-content:center}
+.save-coins-btn{flex:1;min-height:48px;padding:12px 18px;border-radius:6px;font-family:'Josefin Sans',sans-serif;font-size:14px;font-weight:600;letter-spacing:.03em;cursor:pointer;transition:all .2s ease}
+.save-coins-btn.primary{background:#d9ed37;border:1px solid #d9ed37;color:#100b16;box-shadow:0 0 20px #d9ed3750}
+.save-coins-btn.primary:hover{background:#efff61;border-color:#efff61;box-shadow:0 0 26px #d9ed3780;transform:translateY(-1px)}
+.save-coins-btn.secondary{background:transparent;border:1px solid #6b4788;color:#bcaecb;opacity:.85}
+.save-coins-btn.secondary:hover{border-color:#d9ed37;color:#fff;opacity:1}
+@media(max-width:500px){
+ .save-coins-popup-card{padding:26px 20px 22px}
+ .save-coins-heading{font-size:21px}
+ .save-coins-desc{font-size:13px}
+ .save-coins-actions{flex-direction:column}
+}
+
+/* Post-Game Persistent "SAVE YOUR SO/ COINS" Action Button */
+.save-coins-reopen-btn{position:relative;flex:1 1 0%;min-width:0;display:flex;align-items:center;justify-content:center;gap:8px;height:54px;margin-top:0;padding:0 14px;background:linear-gradient(135deg,#1f1333 0%,#2d184a 100%);border:1px solid #d9ed37;border-radius:0;color:#f6ff9c;font-family:'Brilliant Cut Pro','Josefin Sans',sans-serif;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;box-shadow:0 0 16px #d9ed3733,inset 0 0 10px #d9ed3720;transition:all .25s ease}
+.save-coins-reopen-btn:hover{background:linear-gradient(135deg,#2e1c4d 0%,#3f206a 100%);color:#ffffff;border-color:#efff61;box-shadow:0 0 24px #d9ed3766}
+.save-coins-reopen-btn:active{background:#3f206a}
+.save-coins-reopen-btn .coin-sparkle{color:#d9ed37;font-size:12px}
+@media(min-width:768px){
+ #post-game-rewards .score-page .text-layer .reward .buttons .save-coins-reopen-btn{height:51px;font-size:9px;letter-spacing:.07px}
+}
+@media(max-width:600px){
+ .save-coins-reopen-btn{height:48px;font-size:9px;padding:0 10px;gap:6px}
+}
+@keyframes save-coins-fade{from{opacity:0}to{opacity:1}}
+@keyframes save-coins-pop{from{transform:translateY(20px) scale(.96);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
+@media(prefers-reduced-motion:reduce){
+ .save-coins-popup-backdrop,.save-coins-popup-card{animation:none!important}
+}
