@@ -1170,7 +1170,7 @@
       0.02590267250203283,
       -0.06677249857612226
     ],
-    "score_delta": -500,
+    "score_delta": -300,
     "response": "powered_floor_impact; drum_top_and_rail_support_remain_unpowered"
   },
   {
@@ -1757,7 +1757,7 @@
       0.02590267250203283,
       -0.09457004333530787
     ],
-    "score_delta": -500,
+    "score_delta": -300,
     "response": "powered_floor_impact; drum_top_and_rail_support_remain_unpowered"
   },
   {
@@ -28624,7 +28624,7 @@
       0.02590267250203283,
       -0.27505014514372245
     ],
-    "score_delta": -500,
+    "score_delta": -300,
     "response": "powered_floor_impact; drum_top_and_rail_support_remain_unpowered"
   },
   {
