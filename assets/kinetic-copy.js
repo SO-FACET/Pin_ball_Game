@@ -9,7 +9,7 @@ const WELCOME_SCROLL_DISTANCE = 300;
 
 export async function createLandingCopy({welcome:showWelcome=true}={}) {
   // WebKit can hold fonts.ready until a stalled video finishes the document load.
-  await document.fonts.load('400 16px Biarty').catch(() => {});
+  await document.fonts.load('400 16px "Josefin Sans"').catch(() => {});
   const root = document.querySelector('#story-copy');
   // The existing copy and frame attributes remain the editable source for this array.
   const headlines = [...root.querySelectorAll('.story-line')].map(element => ({

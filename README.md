@@ -149,7 +149,7 @@ Tests use temporary storage and synthetic services. The local smoke check starts
 - Portrait phone play uses a 96px launch/score panel with padding inside the score boxes and a slightly more overhead camera. The canvas height retains the former pixel budget on short phones and is bounded by the board width on tall screens, avoiding extra render pixels for empty space. Lighting, materials, resolution profiles and physics are unchanged. Game UI updates only when its values change; charge feedback remains frame-paced. Resize notifications are coalesced and unchanged buffers are reused.
 - Triangle housings and their luminous strips count one scoring hit until the ball separates. Sliding along the same triangle cannot repeatedly earn points; a fresh hit after separation still scores normally.
 - Phone and tablet layouts flip between Hold to launch and the live scorecard as the ball launches and returns. Desktop retains the keyboard instructions and flip card, with a Hold button below the card. Only one flipper accepts input at a time; the held flipper keeps priority until released. Sound controls respect browser activation requirements.
-- Mobile and desktop show diamond-heart life indicators with a centered Lives label in Biarty Medium. They track the actual remaining balls, stay within the game layer and sit behind the navigation drawer. Pause/resume shares one rotating icon, with restart and settings alongside it. The practice guide covers the two flippers before the game starts; its supporting note is at least 13px.
+- Mobile and desktop show diamond-heart life indicators with a centered Lives label in Josefin Sans Semibold. They track the actual remaining balls, stay within the game layer and sit behind the navigation drawer. Pause/resume shares one rotating icon, with restart and settings alongside it. The practice guide covers the two flippers before the game starts; its supporting note is at least 13px.
 - Membership Back returns to the landing experience without replaying the intro loader. Registration steps still move back within the form.
 - The About page uses the approved Explore layout with scroll reveals and a keyboard-accessible collection gallery. The shared navbar and current-page menu behavior apply there as well.
 - Game rewards display `pts`; the conversion remains **10 points = ₹1**.
@@ -355,11 +355,11 @@ The frontend refreshes account data after changes and does not report unconfirme
 | Default headings, including cookie notice and settings | Josefin Sans Semibold (600) | assets/fonts/sofacet-score-josefin-semibold.ttf |
 | Default body, policy copy and smaller menu links | Josefin Sans Regular (400) | assets/fonts/sofacet-score-josefin-regular.ttf |
 | Game HUD light text | Josefin Sans Light (300) | assets/fonts/sofacet-score-josefin-light.ttf |
-| About headings and editorial text | Fancy Cut Pro Regular (400) | assets/about/campaign/fancy.woff2 |
-| About body and small labels | Brilliant Cut Pro Regular (400) | assets/about/campaign/brilliantregular.woff2 |
+| About headings and editorial text | Fancy Cut Pro Regular (400) | assets/score-coins/fancy-400.woff2 |
+| About body and small labels | Brilliant Cut Pro Regular (400) | assets/loader-cards/BrilliantCutPro-Regular.woff2 |
 | Editorial text on the reward, claim, launch and account artwork | Fancy Cut Pro Regular (400) and Brilliant Cut Pro Regular or Medium | assets/score-coins/fancy-400.woff2 and assets/loader-cards/BrilliantCutPro-Regular.woff2 |
-| Selected expressive leads | Yeseva One Regular (400) | assets/fonts/sofacet-score-yeseva.ttf |
-| Cookie body and emphasized copy | Existing cookie body Regular (400) and Semibold (600) | assets/cookie-popup-fonts/body-400.woff2 and body-600.woff2 |
+| Selected expressive leads | Fancy Cut Pro Regular (400) | assets/score-coins/fancy-400.woff2 |
+| Cookie body and emphasized copy | Josefin Sans Regular (400) and Semibold (600) | assets/fonts/sofacet-score-josefin-regular.ttf and assets/fonts/sofacet-score-josefin-semibold.ttf |
 | Inline SO/ FACET wordmark | SOFacetWordmark (400) | assets/fonts/policy-wordmark.otf |
 | Large SO/ FACET branding | Official vector wordmark, plus the mark above it on the About closing section | assets/sofacet-wordmark.svg and assets/sofacet-icon.svg |
 | Loading card rupee glyph | Fancy Cut Pro Regular (400) | assets/score-coins/fancy-400.woff2 |
