@@ -1,0 +1,147 @@
+.account-leaderboard-dialog{
+ box-sizing:border-box;
+ width:min(500px,calc(100% - 32px));
+ max-width:none;
+ max-height:calc(100dvh - 32px);
+ margin:auto;
+ padding:28px 24px;
+ border:1px solid #5a2e7d;
+ border-radius:12px;
+ background:#100b21;
+ color:#f5edff;
+ box-shadow:0 24px 60px #000c,inset 0 0 0 1px #a440e820;
+ overflow:auto;
+ scrollbar-width:thin;
+ scrollbar-color:#8240b2 #100b21;
+ font-family:'Josefin Sans',sans-serif;
+ font-synthesis:none;
+ -webkit-font-smoothing:antialiased;
+}
+.account-leaderboard-dialog::backdrop{
+ background:#030108bb;
+ -webkit-backdrop-filter:blur(14px);
+ backdrop-filter:blur(14px);
+}
+.account-leaderboard-header{
+ display:flex;
+ align-items:center;
+ justify-content:space-between;
+ margin-bottom:20px;
+}
+.account-leaderboard-dialog h2{
+ margin:0;
+ font-size:24px;
+ font-weight:700;
+ letter-spacing:.04em;
+ color:#eaff83;
+}
+.account-leaderboard-close{
+ display:grid;
+ place-items:center;
+ width:40px;
+ height:40px;
+ padding:0;
+ background:transparent;
+ border:0;
+ color:#ddcceb;
+ cursor:pointer;
+ transition:color .2s;
+}
+.account-leaderboard-close:hover{
+ color:#fff;
+}
+.account-leaderboard-close svg{
+ width:20px;
+ height:20px;
+}
+.account-leaderboard-loading,
+.account-leaderboard-error{
+ text-align:center;
+ padding:30px 10px;
+ font-size:14px;
+ color:#ddcceb;
+}
+.account-leaderboard-error{
+ color:#ff94a2;
+}
+.account-leaderboard-table-wrap{
+ overflow-x:auto;
+ margin-bottom:24px;
+}
+.account-leaderboard-table{
+ width:100%;
+ border-collapse:collapse;
+ font-size:14px;
+ text-align:left;
+}
+.account-leaderboard-table th{
+ padding:10px 12px;
+ font-size:11px;
+ font-weight:600;
+ text-transform:uppercase;
+ letter-spacing:.08em;
+ color:#eaff83;
+ border-bottom:1px solid #5a2e7d;
+}
+.account-leaderboard-table td{
+ padding:12px;
+ border-bottom:1px solid #2d1942;
+ color:#eae1f5;
+}
+.account-leaderboard-table .rank-cell{
+ width:22%;
+ font-weight:600;
+ color:#c4b3d7;
+}
+.account-leaderboard-table .name-cell{
+ width:48%;
+}
+.account-leaderboard-table .score-cell{
+ width:30%;
+ text-align:right;
+ font-variant-numeric:tabular-nums;
+ font-weight:600;
+ color:#fff;
+}
+.account-leaderboard-table tr.current-player td{
+ background:#31204edb;
+ color:#eaff86;
+ border-block:1px solid #a4cf4080;
+}
+.account-leaderboard-table .you-pill{
+ display:inline-block;
+ margin-left:8px;
+ padding:2px 6px;
+ font-size:10px;
+ font-weight:700;
+ background:#d9ed37;
+ color:#100b16;
+ border-radius:4px;
+ vertical-align:middle;
+}
+.account-leaderboard-table .empty-cell{
+ text-align:center;
+ padding:24px;
+ color:#bdb0cb;
+}
+.account-leaderboard-actions{
+ display:flex;
+ justify-content:flex-end;
+}
+.account-leaderboard-actions button.primary{
+ min-height:44px;
+ padding:8px 24px;
+ font-size:13px;
+ font-weight:600;
+ border-radius:4px;
+}
+@media(max-width:480px){
+ .account-leaderboard-dialog{
+  padding:20px 16px;
+ }
+ .account-leaderboard-table td,
+ .account-leaderboard-table th{
+  padding:9px 8px;
+  font-size:13px;
+ }
+}
