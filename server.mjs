@@ -42,7 +42,7 @@ function player(request,response){
  return [fresh,store.players[fresh]];
 }
 function name(value){if(typeof value!=='string')fail(400,'Please enter your player name.');const result=value.trim().replace(/\s+/g,' ');if(!result||result.length>40||/[\x00-\x1f\x7f]/.test(result))fail(400,'Use a player name between 1 and 40 characters.');return result}
-function phone(value){if(typeof value!=='string')fail(400,'Please enter your Indian phone number.');let digits=value.replace(/[\s()-]/g,'');if(digits.startsWith('+91'))digits=digits.slice(3);if(/^0\d{10}$/.test(digits))digits=digits.slice(1);if(!/^\d{10}$/.test(digits))fail(400,'Membership currently supports Indian phone numbers (+91, followed by 10 digits).');return '+91'+digits}
+function phone(value){const normalized=normalisePhone(value);if(!normalized)fail(400,'Please enter a valid phone number, including its country code.');return normalized}
 const requests=new Map();
 function rateLimit(request){const now=Date.now(),key=request.socket.remoteAddress;for(const [ip,bucket] of requests)if(now>bucket.until)requests.delete(ip);const bucket=requests.get(key)||{count:0,until:now+60000};bucket.count++;requests.set(key,bucket);if(bucket.count>120)fail(429,'Too many requests. Please wait a minute and try again.')}
 function sameOrigin(request){const expected=process.env.APP_ORIGIN||'http://'+request.headers.host;const shopPreview=process.env.APP_ORIGIN==='https://sofacet.com'&&request.headers.host==='shopsofacet.com'&&request.headers.origin==='https://shopsofacet.com';if(request.headers.origin!==expected&&!shopPreview)fail(403,'Please submit this request from the game.');if(!request.headers['content-type']?.startsWith('application/json'))fail(415,'Please send JSON.');}

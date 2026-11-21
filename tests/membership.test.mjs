@@ -25,8 +25,8 @@ async function verified(fixture,id='one',phoneNumber=valid.phoneNumber,details=v
 }
 const status=code=>error=>error instanceof ServiceError&&error.status===code;
 
-test('Indian phone validation, age boundaries and untrusted pending context',()=>{
- assert.equal(normalisePhone('98765 43210'),'+919876543210');assert.equal(normalisePhone('+91 (98765) 43210'),'+919876543210');assert.equal(normalisePhone('09876543210'),'+919876543210');assert.equal(normalisePhone('+12025550123'),null);
+test('International phone validation, age boundaries and untrusted pending context',()=>{
+ assert.equal(normalisePhone('98765 43210'),'+919876543210');assert.equal(normalisePhone('+91 (98765) 43210'),'+919876543210');assert.equal(normalisePhone('09876543210'),'+919876543210');assert.equal(normalisePhone('+12025550123'),'+12025550123');
  assert.equal(isAdult('2008-10-19',new Date(2026,9,19)),true);assert.equal(isAdult('2008-10-20',new Date(2026,9,19)),false);assert.equal(isAdult('2000-02-30'),false);
  assert.equal(pendingResult({points:3200,rewardValue:999,completedAt:Date.now(),status:'completed'}),null);
  assert.equal(pendingResult({points:3200,rewardValue:320,completedAt:Date.now(),status:'completed',gameId}).points,3200);

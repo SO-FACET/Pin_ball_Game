@@ -11,10 +11,10 @@ export const gameId = 'ab001122-0000-4000-8000-001122334455';
 export const registration = { phoneNumber: '+919876543210', name: 'Test Member', consent: true };
 export const profile = { name: 'Test Member', leaderboardName: 'Test M.', email: 'test@example.invalid', termsAccepted: true, marketingConsent: false, phoneNumber: registration.phoneNumber, gameId };
 
-export async function withRewardsSite(check, { returningMember = false } = {}) {
+export async function withRewardsSite(check, { returningMember = false, phoneNumber = registration.phoneNumber } = {}) {
   const events = [], awards = new Map(), registrations = new Map();
   const state = { sendError: null, verifyError: null, scoreError: null, pointsError: null, profileWriteError: null, loseAwardResponse: false, expiredToken: false, resendAfter: 60,
-    profile: { customer_id: 'cus_fixture', phone: registration.phoneNumber, name: profile.name, email: returningMember ? profile.email : '', leaderboard_name: 'Test M.', marketing_consent: false, terms_accepted: returningMember, profile_complete: returningMember } };
+    profile: { customer_id: 'cus_fixture', phone: phoneNumber, name: profile.name, email: returningMember ? profile.email : '', leaderboard_name: 'Test M.', marketing_consent: false, terms_accepted: returningMember, profile_complete: returningMember } };
   const key = 'fixture-partner-key';
   const token = () => 'eyJhbGciOiJIUzI1NiJ9.' + Buffer.from(JSON.stringify({ sub: 'cus_fixture', otp_verified: true, exp: Math.floor(Date.now() / 1000) + 1800 })).toString('base64url') + '.fixture-signature';
   const send = (res, status, data, headers = {}) => { res.writeHead(status, { 'Content-Type': 'application/json', ...headers }); res.end(JSON.stringify(data)); };
@@ -27,7 +27,7 @@ export async function withRewardsSite(check, { returningMember = false } = {}) {
     if (path === '/rewards/auth') {
       if (state.sendError) return send(res, state.sendError.status, { error: state.sendError.code }, state.sendError.headers);
       assert.equal(body.consent, true); if (body.name !== undefined) assert.equal(body.name, registration.name);
-      assert.equal(body.phone, registration.phoneNumber); assert.equal(body.email, undefined);
+      assert.equal(body.phone, phoneNumber); assert.equal(body.email, undefined);
       for (const pending of registrations.values()) pending.consumed = true;
       const id = 'rreg_' + registrations.size;
       registrations.set(id, { attempts: 0, consumed: false });
@@ -67,7 +67,7 @@ export async function withRewardsSite(check, { returningMember = false } = {}) {
   });
   upstream.listen(0, '127.0.0.1'); await once(upstream, 'listening');
   const directory = await mkdtemp(join(tmpdir(), 'sofacet-rewards-test-'));
-  await writeFile(join(directory, 'players.json'), JSON.stringify({ players: { [member]: { name: 'Guest', ...(returningMember ? { profile: { name: profile.name, email: profile.email, phone: profile.phoneNumber, customerId: 'cus_fixture', marketingConsent: false } } : {}) }, [other]: { name: 'Other guest' } }, games: { [gameId]: { player: member, verified: true, score: 3205 } } }));
+  await writeFile(join(directory, 'players.json'), JSON.stringify({ players: { [member]: { name: 'Guest', ...(returningMember ? { profile: { name: profile.name, email: profile.email, phone: phoneNumber, customerId: 'cus_fixture', marketingConsent: false } } : {}) }, [other]: { name: 'Other guest' } }, games: { [gameId]: { player: member, verified: true, score: 3205 } } }));
   const child = spawn(process.execPath, ['server.mjs'], { cwd: new URL('../../', import.meta.url), env: { ...process.env, NODE_ENV: 'test', HOST: '127.0.0.1', PORT: '0', APP_ORIGIN: '', DATA_DIR: directory, REWARDS_API_BASE: 'http://127.0.0.1:' + upstream.address().port, REWARDS_API_KEY: key, REWARDS_ADMIN_SECRET: '', MEMBERSHIP_TERMS_URL: 'https://example.invalid/terms', MEMBERSHIP_PRIVACY_URL: 'https://example.invalid/privacy' }, stdio: ['ignore', 'pipe', 'pipe'] });
   const exited = once(child, 'exit');
   let logs = ''; child.stdout.on('data', data => { logs += data; }); child.stderr.on('data', data => { logs += data; });
