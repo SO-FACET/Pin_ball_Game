@@ -32,13 +32,8 @@ export async function request(path, body, signal) {
   }
 }
 
-export function normalisePhone(value) {
-  if (typeof value !== 'string' || !/^[+\d\s().-]+$/.test(value.trim())) return null;
-  let digits = value.replace(/\D/g, '');
-  if (/^0\d{10}$/.test(digits)) digits = digits.slice(1);
-  if (/^91\d{10}$/.test(digits)) digits = digits.slice(2);
-  return /^\d{10}$/.test(digits) ? '+91' + digits : null;
-}
+// Compatibility export: every flow uses the same country-aware parser.
+export {normalisePhone} from './phone.js';
 
 export function isAdult(value, today = new Date()) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;

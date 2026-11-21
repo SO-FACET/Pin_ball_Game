@@ -1,9 +1,12 @@
-import {normalisePhone} from '../membership-source/src/phone.js';
+import {normalisePhone,countries} from '../membership-source/src/phone.js';
 import {validPlayerName,splitPlayerName,publicPlayerName} from '../game-source/src/player-copy.ts';
 import {validateAccount} from './validation.js';
 
-const countries={'+91':'IN','+1':'US','+44':'GB','+971':'AE'};
-export function normaliseDesignPhone(phone,dialCode='+91') {return normalisePhone(phone,countries[dialCode] || 'IN');}
+export function normaliseDesignPhone(phone,dialCode='+91') {
+ const country=countries.find(country=>country.dial===dialCode);
+ if(typeof phone!=='string'||!country)return null;
+ return normalisePhone(phone,country.code);
+}
 export function registrationDetails(values) {
   const error=validateAccount(values);
   if(error)throw new Error(error.message);
