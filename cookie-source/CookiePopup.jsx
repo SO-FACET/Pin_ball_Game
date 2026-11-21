@@ -16,7 +16,7 @@ export default function CookiePopup({showNotice,settingsOpen,choice,persisted,op
  return <>
   <section id="sf-cookie-notice" className="cookie-panel" aria-labelledby="sf-cookie-notice-title" data-analytics-private="true" hidden={!showNotice}>
    <h2 id="sf-cookie-notice-title">YOUR COOKIE CHOICES.</h2>
-   <p className="intro">Essential cookies keep this site working. <strong>“Accept all”</strong> also allows analytics and masked session replays of clicks, navigation and gameplay. <strong>“Reject optional”</strong> keeps essential cookies only. You can change each choice in Cookie settings.</p>
+   <p className="intro">Essential cookies keep this site working. <strong>“Accept all”</strong> also allows advertising measurement through Meta Pixel, analytics and masked session replays of clicks, navigation and gameplay. <strong>“Reject optional”</strong> keeps essential cookies only. You can change each choice in Cookie settings.</p>
    <a className="privacy-link" href={policy}>Privacy policy</a>
    <div className="actions">
     <button className="button" type="button" data-accept onClick={()=>save(true,true,true)}>Accept all</button>
@@ -44,7 +44,7 @@ export default function CookiePopup({showNotice,settingsOpen,choice,persisted,op
      <label className="switch-control"><span className="option-status" aria-hidden="true">{analytics&&recording?'On':'Off'}</span><input name="recording" type="checkbox" role="switch" aria-labelledby="sf-recording-label" aria-describedby="sf-recording-description" disabled={!analytics} checked={analytics&&recording} onChange={event=>setRecording(event.target.checked)}/></label>
     </div>
     <div className="preference-row">
-     <div><div className="option-name" id="sf-advertising-label">Advertising</div><p className="option-description" id="sf-advertising-description">Ad performance and personalised ads.</p></div>
+     <div><div className="option-name" id="sf-advertising-label">Advertising</div><p className="option-description" id="sf-advertising-description">Meta Pixel measures ad performance and helps personalise ads.</p></div>
      <label className="switch-control"><span className="option-status" aria-hidden="true">{advertising?'On':'Off'}</span><input name="advertising" type="checkbox" role="switch" aria-labelledby="sf-advertising-label" aria-describedby="sf-advertising-description" checked={advertising} onChange={event=>setAdvertising(event.target.checked)}/></label>
     </div>
     <p className="in-use-note">Google Analytics and PostHog use your Analytics choice. PostHog recordings also need Session replay enabled; form entries and private content are hidden. Advertising is not currently in use.</p>
