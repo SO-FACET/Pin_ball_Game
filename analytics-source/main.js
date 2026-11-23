@@ -5,3 +5,6 @@ installAnalytics(window,providerLoaders(window));
 
 import {installMetaPixel} from './meta-pixel.js';
 installMetaPixel(window);
+
+import {installMetaInteractions} from '../shared/meta-events.js';
+installMetaInteractions(window);

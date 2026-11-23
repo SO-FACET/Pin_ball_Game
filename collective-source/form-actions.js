@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useState,useRef} from 'react';
 
 export function formValues(form) {return Object.fromEntries(new FormData(form));}
 
@@ -14,14 +14,15 @@ export function showValidation(form, error, setMessage) {
 export function useSubmission() {
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
-  async function submit(handler, values, unavailableMessage) {
-    if (busy) return;
+  const inFlight=useRef(false);
+  async function submit(handler, values, unavailableMessage, onAccepted) {
+    if (inFlight.current) return;
     setMessage('');
     if (!handler) {setMessage(unavailableMessage); return;}
-    setBusy(true);
-    try {const result = await handler(values); if (result?.message) setMessage(result.message);}
+    inFlight.current=true;setBusy(true);
+    try {onAccepted?.();const result = await handler(values); if (result?.message) setMessage(result.message);}
     catch (error) {setMessage(error instanceof Error ? error.message : 'Please try again.');}
-    finally {setBusy(false);}
+    finally {inFlight.current=false;setBusy(false);}
   }
   return {message, setMessage, busy, submit};
 }

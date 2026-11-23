@@ -8,6 +8,8 @@ import {Arrow} from './icons.jsx';
 import {validPhone, validateAccount} from './validation.js';
 import {formValues, showValidation, useSubmission} from './form-actions.js';
 import {track} from '../shared/analytics.js';
+import {trackMetaEvent} from '../shared/meta-events.js';
+import {registrationDetails,normaliseDesignPhone} from './auth-values.js';
 
 export default function AccountPage({pageTitle='SO/ FACET — My SO/ COINS',pointsContext=false,updatesRequired=true,initialTab = 'registered', activeTab, onTabChange, onLogin, onRequestOtp, onRequestCreateOtp, onCreateAccount, termsUrl, privacyUrl, defaults = {}, status = '', codeRequested = false, createCodeRequested = false, resendSeconds = 0, working = false}) {
   const [selectedTab, setTab] = useState(initialTab);
@@ -33,7 +35,7 @@ export default function AccountPage({pageTitle='SO/ FACET — My SO/ COINS',poin
     event.preventDefault();
     const form = event.currentTarget;
     if (!form.reportValidity()) return;
-    void login.submit(onLogin, formValues(form), 'Login verification is not connected in this preview.');
+    void login.submit(onLogin, formValues(form), 'Login verification is not connected in this preview.',()=>{if(normaliseDesignPhone(formValues(form).phone))trackMetaEvent('Lead',{form_type:'login'})});
   }
   function requestCreateCode() {
     if (resendSeconds > 0 || working) return;
@@ -48,7 +50,7 @@ export default function AccountPage({pageTitle='SO/ FACET — My SO/ COINS',poin
     if (!form.reportValidity()) return;
     const validation=validateAccount(values);
     if (showValidation(form, validation, create.setMessage)) {track('form_invalid',{form:'create-form',field:validation.field});return;}
-    void create.submit(onCreateAccount, {...values, terms:values.terms === 'on', updates:values.updates === 'on'}, 'Account creation is not connected in this preview.');
+    void create.submit(onCreateAccount, {...values, terms:values.terms === 'on', updates:values.updates === 'on'}, 'Account creation is not connected in this preview.',()=>{registrationDetails(values);trackMetaEvent('Lead',{form_type:'join_collective'})});
   }
   const policyLink = (label,url) => <a href={url || (label==='Privacy Policy'?'/privacy':'/terms')} target="_blank" rel="noopener">{label}</a>;
   return <PageShell scene="account" initialize={initialize} title={pageTitle}>

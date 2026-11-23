@@ -8,7 +8,7 @@ export function connectCardMotion(root, onComplete) {
   const names = ['Diamond', 'Pinball', 'Jewellery'];
   const poses = ['translate(0,0) rotate(0deg) scale(1)', 'translate(14px,-8px) rotate(3deg) scale(.97)', 'translate(28px,-16px) rotate(6deg) scale(.94)'];
   const brightness = [1, .68, .48];
-  const DURATION = 1600, INTERVAL = 8000;
+  const DURATION = 1600, INTERVAL = 4000;
   const backStates = cards.map(() => false);
   let current = 0, busy = false, paused = false, timer, startedAt, remaining = INTERVAL;
   let pointerStart, swiped = false;
