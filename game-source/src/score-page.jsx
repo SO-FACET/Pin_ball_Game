@@ -9,13 +9,13 @@ import {Arrow,Replay} from '../../collective-source/icons.jsx';
 import './reward-integration.css';
 
 export function ScorePage(props) {
- const {result, isMember = false, onSave, onReplay, onLeaderboard, showPopup = true} = props;
+ const {result, isMember = false, onSave, onReplay, onLeaderboard, onMaybeLater, showPopup = false} = props;
  const low = result.points < 10;
  const showSavePopup = !low && !isMember && showPopup;
 
  return <PageShell scene="rewards" initialize={initialize} title="SO/ FACET — Pinball">
   <RewardMesh/><RewardArtwork/>
-  <main className="page text-layer"><section className="reward" aria-label="Your unlocked reward">
+  <main className="page text-layer" inert={showSavePopup?true:undefined}><section className="reward" aria-label="Your unlocked reward">
    <div className="brand">SO/ UNLOCKED</div>
    <div className="headline-pair">
     <div className="headline-left"><h1 id="rewards-heading" tabIndex={-1}>{low?resultHeadline(result.points):<><span>Here’s</span><span>What’s Yours!</span></>}</h1></div>
@@ -62,11 +62,7 @@ export function ScorePage(props) {
        id="save-coins-login"
        className="save-coins-btn primary"
        type="button"
-       onClick={() => {
-        const modal = typeof document !== 'undefined' ? document.getElementById('save-coins-modal') : null;
-        if (modal) modal.style.display = 'none';
-        onSave();
-       }}
+       onClick={onSave}
       >
        Login / Sign Up
       </button>
@@ -74,12 +70,7 @@ export function ScorePage(props) {
        id="save-coins-later"
        className="save-coins-btn secondary"
        type="button"
-       onClick={() => {
-        const modal = typeof document !== 'undefined' ? document.getElementById('save-coins-modal') : null;
-        if (modal) modal.style.display = 'none';
-        const reopenBtn = typeof document !== 'undefined' ? document.getElementById('rewards-reopen-save') : null;
-        if (reopenBtn) reopenBtn.style.display = 'flex';
-       }}
+       onClick={onMaybeLater}
       >
        Maybe Later
       </button>
@@ -91,5 +82,5 @@ export function ScorePage(props) {
 }
 export function mountScorePage(container,actions){
  const root=createRoot(container);
- return {render(result,isMember=false){flushSync(()=>root.render(<ScorePage result={result} isMember={isMember} {...actions}/>));},clear(){root.render(null);}};
+ return {render(result,isMember=false,showPopup=false){flushSync(()=>root.render(<ScorePage result={result} isMember={isMember} showPopup={showPopup} {...actions}/>));},clear(){root.render(null);}};
 }

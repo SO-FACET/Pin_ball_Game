@@ -48,7 +48,7 @@ test('the three React actions invoke their existing callbacks once',()=>{
  assert.deepEqual(calls,['save','replay','leaderboard']);
 });
 
-async function controllerFixture(){
+async function controllerFixture(member=false){
  const nodes=new Map(),events=new Map(),captured={},analytics=[];
  const node=id=>{
   if(!nodes.has(id))nodes.set(id,{id,hidden:false,open:false,dataset:{},style:{setProperty(){}},offsetTop:1,offsetHeight:1,
@@ -61,11 +61,11 @@ async function controllerFixture(){
  const context={exports,module:{exports},Date,Math,Number,URL,Element:class{},location:{origin:'http://test.local',href:'http://test.local/play.html'},
   document:{getElementById:node,querySelector:()=>node('header'),body:{prepend(){}},addEventListener:(key,fn)=>events.set(key,fn)},
   setScreenRoute:route=>{captured.route=route},writeScreenData:(key,value)=>{captured[key+'Storage']=value},ResizeObserver:class{observe(){}disconnect(){}},addEventListener:(key,fn)=>events.set(key,fn),leaveCopy,rewardFromPoints,track:(name,properties)=>analytics.push({name,properties}),
-  mountRewardNoticeArtwork:()=>()=>{},mountScorePage:(_container,actions)=>{captured.actions=actions;return {render:value=>{captured.result=value;captured.scoreVisible=true},clear:()=>{captured.scoreVisible=false}}},window:{top:{location:{assign:value=>{captured.destination=value}}}},
+  mountRewardNoticeArtwork:()=>()=>{},mountScorePage:(_container,actions)=>{captured.actions=actions;return {render:(value,member,popup)=>{captured.result=value;captured.member=member;captured.popup=popup;captured.scoreVisible=true},clear:()=>{captured.scoreVisible=false}}},window:{addEventListener(){},top:{addEventListener:(key,fn)=>events.set(key,fn),removeEventListener(){},history:{state:{}},location:{pathname:'/game',assign:value=>{captured.destination=value}}}},
  };
  vm.runInNewContext(compiled.code,context);
  const registered=[],openers=[],replays=[],boards=[];
- const controller=context.module.exports.connectPostGameRewards((value,opener)=>{registered.push(value);openers.push(opener.id)},()=>replays.push(true),()=>boards.push(true));
+ const controller=context.module.exports.connectPostGameRewards((value,opener)=>{registered.push(value);openers.push(opener.id)},()=>replays.push(true),()=>boards.push(true),()=>member);
  return {controller,node,captured,registered,openers,replays,boards,events,analytics,element:context.Element};
 }
 test('score controller passes the immutable completed result and game ID into registration',async()=>{
@@ -84,9 +84,9 @@ test('the leave warning opens Claim or discards the reward and opens Notify',asy
  const fixture=await controllerFixture();fixture.controller.show(4800,'game');
  const escape=()=>fixture.controller.dialog.oncancel({preventDefault(){}});
  fixture.captured.actions.onLeaderboard();assert.equal(fixture.boards.length,1);
- escape();assert.equal(fixture.controller.dialog.dataset.view,'leave');assert.equal(fixture.captured.scoreVisible,false);
+ assert.equal(fixture.captured.popup,false);escape();assert.equal(fixture.captured.popup,true);assert.equal(fixture.captured.scoreVisible,true);
  escape();assert.equal(fixture.controller.dialog.dataset.view,'result');assert.equal(fixture.captured.scoreVisible,true);
- escape();fixture.node('rewards-keep').click();assert.equal(fixture.registered[0].points,4800);assert.equal(fixture.openers[0],'rewards-keep');
+ escape();fixture.node('rewards-keep').click();assert.equal(fixture.registered[0].points,4800);assert.equal(fixture.openers[0],'save-coins-login');
  fixture.controller.show();escape();fixture.node('rewards-leave-anyway').click();assert.equal(fixture.captured.destination,'/notify');assert.equal(fixture.captured.rewardStorage,null);
  fixture.controller.clear();fixture.controller.show(9);escape();assert.equal(fixture.captured.destination,'/');
 });
@@ -110,4 +110,33 @@ test('explicit reward exit records one discard while programmatic clearing and l
  assert.equal(f.analytics.length,1,'AuthFlow already records the discard before sending its message');
  f.controller.clear();f.controller.show(9);f.node('rewards-leave-anyway').click();
  assert.equal(f.analytics.length,1,'unredeemable scores are not counted as rewards lost');
+});
+
+test('exit popup is opt-in and Maybe Later delegates to the launch action',()=>{
+ const base={result:result(3205),onSave(){}};
+ assert.ok(!elements(ScorePage(base)).some(n=>n.props.id==='save-coins-modal'));
+ let later=0;const popup=elements(ScorePage({...base,showPopup:true,onMaybeLater:()=>later++}));
+ popup.find(n=>n.props.id==='save-coins-later').props.onClick();assert.equal(later,1);
+ assert.ok(!elements(ScorePage({...base,isMember:true,showPopup:true})).some(n=>n.props.id==='save-coins-modal'));
+});
+test('browser Back shows the nudge and Maybe Later discards only the pending score',async()=>{
+ const f=await controllerFixture();f.controller.show(3205,'game');let stopped=false;
+ f.events.get('popstate')({stopImmediatePropagation(){stopped=true}});
+ assert.equal(stopped,true);assert.equal(f.captured.popup,true);
+ f.captured.actions.onMaybeLater();assert.equal(f.captured.destination,'/notify');assert.equal(f.captured.rewardStorage,null);
+ assert.equal(f.controller.result,null);
+});
+test('browser close requests a native warning only for unsaved redeemable scores',async()=>{
+ const f=await controllerFixture();let warnings=0;
+ const event=()=>({preventDefault(){warnings++},returnValue:undefined});
+ f.events.get('beforeunload')(event());assert.equal(warnings,0);
+ f.controller.show(3205,'game');f.events.get('beforeunload')(event());assert.equal(warnings,1);
+ f.controller.discard();f.events.get('beforeunload')(event());assert.equal(warnings,1);
+});
+
+test('members never get the save-coins exit nudge',async()=>{
+ const f=await controllerFixture(true);f.controller.show(3205,'game');
+ f.events.get('popstate')({stopImmediatePropagation(){assert.fail('member navigation should not be intercepted')}});
+ assert.equal(f.captured.popup,false);
+ let warnings=0;f.events.get('beforeunload')({preventDefault(){warnings++}});assert.equal(warnings,0);
 });
