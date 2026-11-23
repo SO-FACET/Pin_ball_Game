@@ -8,6 +8,7 @@ import {Arrow} from './icons.jsx';
 import {normaliseDesignPhone} from './auth-values.js';
 import {useSubmission} from './form-actions.js';
 import {track} from '../shared/analytics.js';
+import {trackMetaEvent} from '../shared/meta-events.js';
 
 export default function ClaimPage({pageTitle='SO/ FACET — My SO/ COINS',result,confirmation=null,name = '',phone = '',dialCode = '+91',challengePhone,challengeId,twoStep=false,email='',onStart,termsUrl,privacyUrl,onClaim,onResend,onBack,onClose,onSignIn,status = '',resendSeconds = 0,working = false}) {
   const [showConfirmation,setShowConfirmation]=useState(Boolean(confirmation));
@@ -69,8 +70,9 @@ export default function ClaimPage({pageTitle='SO/ FACET — My SO/ COINS',result
   }
   function saveDetails(event) {
     event.preventDefault();
+    if(!event.currentTarget.reportValidity())return;
     const fields=event.currentTarget.elements;
-    void submit(onClaim,{mobile,dialCode:dial,email:fields.email.value,terms:fields.terms.checked,updates:fields.updates.checked},verificationUnavailable);
+    void submit(onClaim,{mobile,dialCode:dial,email:fields.email.value,terms:fields.terms.checked,updates:fields.updates.checked},verificationUnavailable,()=>trackMetaEvent('Lead',{form_type:'join_collective'}));
   }
   function save(event) {
     event.preventDefault();
@@ -82,7 +84,7 @@ export default function ClaimPage({pageTitle='SO/ FACET — My SO/ COINS',result
         if(window.matchMedia('(prefers-reduced-motion:reduce)').matches)setDetailsStep(true);
         else setLeaving(true);
       }
-    },{mobile,dialCode:dial,otp,verifyOnly:twoStep},verificationUnavailable);
+    },{mobile,dialCode:dial,otp,verifyOnly:twoStep},verificationUnavailable,()=>{if(!twoStep)trackMetaEvent('Lead',{form_type:'join_collective'})});
   }
   return <PageShell scene="claim" initialize={initialize} title={pageTitle}>
     <ClaimMesh />

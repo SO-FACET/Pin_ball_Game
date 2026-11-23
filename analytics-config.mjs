@@ -9,7 +9,7 @@ export function analyticsConfig(env=process.env){
  const gaId=/^G-[A-Z0-9]+$/.test(env.GA4_MEASUREMENT_ID||'')?env.GA4_MEASUREMENT_ID:'';
  let posthogHost='';
  try{const url=new URL(env.POSTHOG_HOST||'https://us.i.posthog.com');if(url.protocol==='https:'&&!url.username&&!url.password)posthogHost=url.origin}catch{}
- return {enabled,gaId:enabled?gaId:'',posthogKey:enabled&&posthogHost?posthogPublicKey(env.POSTHOG_PUBLIC_KEY):'',posthogHost,
+ return {enabled,metaPixelEnabled:env.META_PIXEL_ENABLED==='true'&&/^\d{5,20}$/.test(env.META_PIXEL_ID||''),metaPixelId:env.META_PIXEL_ENABLED==='true'&&/^\d{5,20}$/.test(env.META_PIXEL_ID||'')?env.META_PIXEL_ID:'',gaId:enabled?gaId:'',posthogKey:enabled&&posthogHost?posthogPublicKey(env.POSTHOG_PUBLIC_KEY):'',posthogHost,
   sessionReplay:env.POSTHOG_SESSION_REPLAY==='true',environment:env.ANALYTICS_ENVIRONMENT||'production',release:env.RAILWAY_GIT_COMMIT_SHA||env.APP_RELEASE||''};
 }
 

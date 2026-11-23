@@ -86,7 +86,7 @@ function saveCoins(pending?:CompletedGameResult,verify=false,opener?:HTMLElement
  if(membership?.isMember()&&!verify){window.top!.location.assign('/sign-in');return}
  void membership?.open(opener,pending,verify);
 }
-const rewards=connectPostGameRewards((result,opener)=>saveCoins(result,false,opener),()=>$('start').click(),showLeaderboard,()=>membership?.isMember()===true);
+const rewards=connectPostGameRewards((result,opener)=>saveCoins(result,false,opener),()=>$('start').click(),showLeaderboard);
 const leaderboard=connectLeaderboard(()=>{const resume=resumeAfterLeaderboard&&loaded&&physics.active&&physics.state!=='finished';resumeAfterLeaderboard=false;if(resume)setGamePaused(false);else if(loaded&&physics.state==='finished')rewards.show(physics.score,leaderboard.gameId);else $('start').focus()},()=>$('start').click(),(score,best)=>{if(loaded&&physics.state==='finished'){physics.score=score;highScore=best;sync()}},best=>{highScore=best;scorecard.update(loaded?physics.score:0,best);if(loaded)sync()},player=>membership?.updatePlayer(player),(verify,pending)=>saveCoins(pending,verify));
 membership=connectMembership({
  beforeOpen(){resumeAfterMembership=loaded&&physics.active&&!physics.paused&&physics.state!=='finished';clearKeys();if(resumeAfterMembership){holdCharge=physics.state==='charging';physics.setPaused(true);accumulator=0}rewards.dialog.close();closeSettings();if(loaded)syncGameActivity()},

@@ -22,8 +22,8 @@ try{await withRewardsSite(async({origin})=>{
    assert.equal(await page.locator('#sf-cookie-notice h2').textContent(),'YOUR COOKIE CHOICES.');
    const notice=await fits(page,'#sf-cookie-notice');assert.equal(notice.noOverflow,true);
    if(width>650)assert.equal(notice.width,480);
-   assert.match(await page.locator('#sf-cookie-notice h2').evaluate(e=>getComputedStyle(e).fontFamily),/SFCookieDisplay/);
-   assert.match(await page.locator('#sf-cookie-notice button').first().evaluate(e=>getComputedStyle(e).fontFamily),/SFCookieButton/);
+   assert.match(await page.locator('#sf-cookie-notice h2').evaluate(e=>getComputedStyle(e).fontFamily),/Josefin Sans/);
+   assert.match(await page.locator('#sf-cookie-notice button').first().evaluate(e=>getComputedStyle(e).fontFamily),/Brilliant Cut Pro/);
    await capture(page,width+'-landing-notice');
    await page.locator('#sf-cookie-notice [data-manage]').click();
    await page.locator('#sf-cookie-settings').waitFor({state:'visible'});

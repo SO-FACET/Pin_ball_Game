@@ -101,7 +101,7 @@ export function installGameLoader(renderCards) {
   const stage=document.getElementById('stage');if(stage){stage.inert=false;stage.dataset.ready='true';stage.setAttribute('aria-busy','false')}
   blocked=[];root.dataset.state='leaving';
   root.dispatchEvent(new CustomEvent('sofacet:game-loader-ready'));
-  if(!parentOwnsCards)window.sofacetAnalytics?.track('game_ready');
+  if(!parentOwnsCards){window.sofacetAnalytics?.track('game_ready');try{(window.top||window).sofacetMetaPixel?.track('ViewContent',{content_name:'Pinball'},'pinball-load:'+run)}catch{}}
   fade=setTimeout(()=>{root.hidden=true;document.body.removeAttribute('data-game-loading');paint();},motion.matches?0:400);
  }
  function fail(reason,phase='module'){

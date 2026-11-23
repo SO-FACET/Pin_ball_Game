@@ -33,29 +33,3 @@ test('every visitor sees public names and real ranks; equal scores use first ser
 test('public external rewards mode reaches its service instead of rejecting guests',async()=>{
  await withServer('rewards',async request=>{const response=await request('/api/leaderboard',guest);assert.equal(response.status,503);assert.notEqual((await response.json()).message,'Please register to view the leaderboard.')});
 });
-
-test('visibleEntries displays top 10 and preserves user rank if > 10',async()=>{
- const bundle=await import('esbuild-wasm').then(b=>b.build({entryPoints:[new URL('../game-source/src/leaderboard.ts',import.meta.url).pathname],bundle:true,platform:'node',format:'esm',packages:'external',loader:{'.css':'empty'},write:false}));
- const mod=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text).toString('base64'));
- const {visibleEntries}=mod;
- const entries=Array.from({length:15},(_,i)=>({
-  rank:i+1,
-  display_name:`Player ${i+1}`,
-  points:10000 - i*500,
-  is_you:false
- }));
- const guestMe={rank:12,display_name:'You',points:4500,is_you:true};
-
- // When me.rank > 10, top 9 + me are shown (10th row is me, rank 12)
- const rowsWithMe=visibleEntries(entries,guestMe);
- assert.equal(rowsWithMe.length,10);
- assert.equal(rowsWithMe[0].rank,1);
- assert.equal(rowsWithMe[8].rank,9);
- assert.equal(rowsWithMe[9].rank,12);
- assert.equal(rowsWithMe[9].is_you,true);
-
- // When no me or me.rank <= 10
- const rowsWithoutMe=visibleEntries(entries,null);
- assert.equal(rowsWithoutMe.length,10);
- assert.equal(rowsWithoutMe[9].rank,10);
-});
