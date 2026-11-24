@@ -71,7 +71,7 @@ export class TableView {
   const [manifest,referenceData]=await Promise.all([json('/assets/manifest.json?v=scoring-27'),json('/assets/reference-cameras.json')]);this.manifest=manifest;this.references=referenceData.views;
   const asset=(name:string)=>'/assets/'+name+'?v='+(manifest.asset_checksums[name]||manifest.asset_revision);
   if(manifest.runtime_contract_version!==6)throw new Error('This model package is incompatible. Restore the matching game files.');
-  if(manifest.target_gameplay?.length!==7||manifest.target_gameplay.some((t:{score:number})=>t.score!==1100))throw new Error('The model package is missing the seven 1100-point target mappings.');
+  if(manifest.target_gameplay?.length!==7||manifest.target_gameplay.some((t:{score:number})=>t.score!==1200))throw new Error('The model package is missing the seven 1200-point target mappings.');
   if(!(manifest.scale>0)||manifest.entities.filter((e:EntityLike)=>e.role==='ball').length!==1)throw new Error('Invalid model manifest.');
   progress(8,'Loading the original geometry…');
   const loader=new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
