@@ -30,6 +30,12 @@ try{
     await firstTouchPage.goto(url.href);
     assert.equal(await firstTouchPage.locator('body').getAttribute('data-awaiting-explore'),'');
     assert.equal(firstTouchRequests.some(url=>firstTouchMedia.test(url)),false,'No movie download before the first touch');
+    // On compact iPhone viewports the cookie notice can cover the test's tap.
+    // Privacy choices must leave the landing screen idle before touching it.
+    await firstTouchPage.locator('#sf-cookie-notice [data-reject]').click();
+    await firstTouchPage.locator('#sf-cookie-notice').waitFor({state:'hidden'});
+    assert.equal(await firstTouchPage.locator('body').getAttribute('data-awaiting-explore'),'','A cookie choice must not start the movie');
+    assert.equal(firstTouchRequests.some(url=>firstTouchMedia.test(url)),false,'Cookie choices must not download the movie');
     await firstTouchPage.touchscreen.tap(180,300);
     await firstTouchPage.waitForFunction(()=>!!window.entrancePreview);
     assert.equal(await firstTouchPage.locator('body').getAttribute('data-loading'),'');
