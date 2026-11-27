@@ -9,7 +9,7 @@ export function validateEntranceManifest(manifest,{width=1920,height=1080}={}){
 
 // A separate switch prevents an existing legacy-video CDN setting from selecting
 // new objects before they have been uploaded and verified.
-export async function loadEntranceMedia(fetcher=fetch,{option=selectEntranceOption(globalThis.location?.search||''),navigator=globalThis.navigator,signal}={}){
+export async function loadEntranceMedia(fetcher=fetch,{option=selectEntranceOption(globalThis.location?.search||''),navigator=globalThis.navigator,signal,cacheStorage=globalThis.caches,preferCached=!new URLSearchParams(globalThis.location?.search||'').has('entrance')}={}){
   const preference=entranceVideoPreference({option,navigator}),width=preference.width;
   // Keep the deadline/parent cancellation through JSON body consumption too.
   const readManifest=async(url,milliseconds)=>{
@@ -78,7 +78,19 @@ export async function loadEntranceMedia(fetcher=fetch,{option=selectEntranceOpti
     for(const kind of ['opening','journey']){clips[kind].url=urls[kind];clips[kind].bytes=higherQuality.clips[kind].bytes;}
     if(segments){clips.journey.segments=segments;clips.journey.decoder=higherQuality.clips.journey.decoder;}
     if(preview)clips.journey.preview=preview;
-    return {manifest:higherQuality,clips,selectionReason:candidate.width===width?preference.reason:'cdn-fallback'};
+    const selected={manifest:higherQuality,clips,selectionReason:candidate.width===width?preference.reason:'cdn-fallback'};
+    if(higherQuality.width===3840&&preferCached&&cacheStorage)try{
+      const cache=await cacheStorage.open('sofacet-entrance-preloaded-v1');
+      const complete=async media=>{
+        const files=[media.clips.opening,...(media.clips.journey.segments||[media.clips.journey])];
+        return (await Promise.all(files.map(async file=>Number((await cache.match(file.url))?.headers.get('Content-Length'))===file.bytes))).every(Boolean);
+      };
+      if((await cache.keys()).length&&!await complete(selected)){
+        const hd=await loadEntranceMedia(fetcher,{option:'2',navigator,signal,cacheStorage:null,preferCached:false});
+        if(await complete(hd))return {...hd,selectionReason:'cached-hd'};
+      }
+    }catch{signal?.throwIfAborted();/* Storage is an optimization, never a startup requirement. */}
+    return selected;
   }catch{signal?.throwIfAborted();/* Try the regular CDN, then bundled media. */}
   return {manifest,clips,selectionReason:width===1920?preference.reason:'cdn-fallback'};
 }

@@ -18,9 +18,9 @@ export function recordLoadMetric(win,properties){
  }catch{}
 }
 
-export function createLoadTracker(win,{stage,fromNavigation=false,metrics=()=>({}),slowMs=15000}={}){
+export function createLoadTracker(win,{stage,fromNavigation=false,startAt,metrics=()=>({}),slowMs=15000}={}){
  const now=()=>{try{return win.performance.now()}catch{return 0}};
- const start=fromNavigation?0:now();
+ const start=Number.isFinite(startAt)?Math.max(0,Math.min(now(),startAt)):fromNavigation?0:now();
  let finished=false,hidden=win.document?.hidden===true,hiddenAt=hidden?now():null,hiddenMs=0;
  let sequence=1;
  try{const state=win.__sofacetLoadMetrics??={next:0,sequence:0,entries:[]};sequence=++state.sequence}catch{}

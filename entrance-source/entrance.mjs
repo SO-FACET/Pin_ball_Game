@@ -24,7 +24,7 @@ const showFPS=parameters.has('debug')||parameters.has('debug/1')||parameters.has
 const game=$('game-page'),main=$('entrance'),stage=$('scene-frame'),viewport=$('scene-viewport');
 const assembly=createAssemblyClock({reducedMotion:reduced.matches});
 let journey,updateCopy,framing,ready=false,gameLoaded=false,gameRequested=false,gameVisible=false;
-const entranceLoad=createLoadTracker(window,{stage:'entrance',fromNavigation:true,metrics:()=>({renderer:videoEntrance?'video':'webgl',...journey?.loadMetrics})});
+const entranceLoad=createLoadTracker(window,{stage:Number.isFinite(window.__sofacetExperienceStart)?'cinematic':'entrance',fromNavigation:true,startAt:window.__sofacetExperienceStart,metrics:()=>({renderer:videoEntrance?'video':'webgl',...journey?.loadMetrics})});
 let phase='loading',gameLoader,gameReadyObserver;
 let gameRecovering=false;
 let startupFailed=false;
@@ -48,7 +48,7 @@ async function loadMainPresentation(){
   // All markup and styles come from index.html at build time. Imports reuse the
   // same controllers as /video, without fetching and parsing that page again.
   await Promise.all([
-    import(new URL($('game-loader-controller').getAttribute('src'),document.baseURI).href),
+    import(new URL($('game-loader-controller').getAttribute('src')||$('game-loader-controller').dataset.src,document.baseURI).href),
     import(new URL($('entrance-navigation-controller').getAttribute('src'),document.baseURI).href),
   ]);
   gameLoader=window.sofacetGameLoader;

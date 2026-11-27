@@ -61,3 +61,24 @@ test('known Wi-Fi still selects the verified 4K CDN',async()=>{
   const media=await loadEntranceMedia(fetcher,{navigator:{...phone,connection:{type:'wifi',effectiveType:'4g'}}});
   assert.equal(media.manifest.width,3840);assert.match(media.clips.journey.url,/\/4k\//);
 });
+
+function storedVideo(variants){
+ const files=new Map(variants.flatMap(variant=>['opening','journey'].map((kind,index)=>[`https://media.example/${variant}/entrance-${kind}-${(index?'b':'a').repeat(64)}.mp4`,100])));
+ return {open:async()=>({keys:async()=>[...files.keys()],match:async url=>files.has(url)?new Response(null,{headers:{'Content-Length':String(files.get(url))}}):undefined})};
+}
+test('a complete cached HD entrance wins over another cold 4K download',async()=>{
+ const {fetcher}=deliveryFixture();
+ const media=await loadEntranceMedia(fetcher,{navigator:{},cacheStorage:storedVideo(['hd']),preferCached:true});
+ assert.equal(media.manifest.width,1920);assert.equal(media.selectionReason,'cached-hd');
+});
+test('a complete cached 4K entrance and explicit quality comparisons retain 4K',async()=>{
+ for(const options of [{cacheStorage:storedVideo(['hd','4k']),preferCached:true},{cacheStorage:storedVideo(['hd']),preferCached:false}]){
+  const {fetcher}=deliveryFixture();const media=await loadEntranceMedia(fetcher,{navigator:{},...options});assert.equal(media.manifest.width,3840);
+ }
+});
+test('empty or unavailable cache storage does not change the cold selection or fetch HD',async()=>{
+ for(const cacheStorage of [storedVideo([]),{open:async()=>{throw Error('Storage unavailable')}}]){
+  const {fetcher,calls}=deliveryFixture();const media=await loadEntranceMedia(fetcher,{navigator:{},cacheStorage,preferCached:true});
+  assert.equal(media.manifest.width,3840);assert.equal(calls.some(url=>String(url).includes('/hd/')),false);
+ }
+});

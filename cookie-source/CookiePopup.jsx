@@ -14,16 +14,6 @@ export default function CookiePopup({showNotice,settingsOpen,choice,persisted,op
   }else if(dialog.current.open)dialog.current.close();
  },[settingsOpen,choice]);
  return <>
-  <section id="sf-cookie-notice" className="cookie-panel" aria-labelledby="sf-cookie-notice-title" data-analytics-private="true" hidden={!showNotice}>
-   <h2 id="sf-cookie-notice-title">YOUR COOKIE CHOICES.</h2>
-   <p className="intro">Essential cookies keep this site working. <strong>“Accept all”</strong> also allows advertising measurement through Meta Pixel, analytics and masked session replays of clicks, navigation and gameplay. <strong>“Reject optional”</strong> keeps essential cookies only. You can change each choice in Cookie settings.</p>
-   <a className="privacy-link" href={policy}>Privacy policy</a>
-   <div className="actions">
-    <button className="button" type="button" data-accept onClick={()=>save(true,true,true)}>Accept all</button>
-    <button className="button" type="button" data-reject onClick={()=>save(false,false,false)}>Reject optional</button>
-   </div>
-   <button className="button outline settings-button" type="button" data-manage aria-controls="sf-cookie-settings" onClick={open}>Cookie settings</button>
-  </section>
   <dialog ref={dialog} id="sf-cookie-settings" className="cookie-panel preferences" aria-labelledby="sf-cookie-title" aria-describedby="sf-cookie-description" data-analytics-private="true" onClose={close} onKeyDown={event=>event.stopPropagation()}>
    <div className="preferences-header">
     <h2 id="sf-cookie-title" tabIndex={-1} ref={title}>Cookie preferences</h2>

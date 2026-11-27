@@ -16,12 +16,12 @@ const output=resolve(root,'assets/entrance-3d');
 await mkdir(output,{recursive:true});
 // Only this route imports the Three.js bundle. Shared presentation modules stay
 // external so both entrances use the same fonts, copy, video opening and audio.
-const result=await build({absWorkingDir:root,entryPoints:{entry:'entrance-source/entrance.mjs',startup:'entrance-source/startup.mjs'},outdir:output,
+const result=await build({absWorkingDir:root,entryPoints:{landing:'entrance-source/landing.mjs',entry:'entrance-source/entrance.mjs',startup:'entrance-source/startup.mjs'},outdir:output,
   bundle:true,splitting:true,format:'esm',target:'es2022',minify:true,write:false,metafile:true,
   external:['/assets/*','/frame-placement.js','/sounds/*'],
   entryNames:'entry-[hash]',chunkNames:'chunk-[hash]',assetNames:'asset-[hash]',
 },{label:'entrance'});
-const entry=Object.entries(result.metafile.outputs).find(([,file])=>file.entryPoint==='entrance-source/entrance.mjs')?.[0];
+const entry=Object.entries(result.metafile.outputs).find(([,file])=>file.entryPoint==='entrance-source/landing.mjs')?.[0];
 if(!entry)throw Error('Entrance build did not produce an entry module.');
 const css=await readFile(resolve(root,'entrance-source/entrance.css'),'utf8');
 const startup=Object.entries(result.metafile.outputs).find(([,file])=>file.entryPoint==='entrance-source/startup.mjs')?.[0];
@@ -38,8 +38,10 @@ for(const [,href] of source.matchAll(/<link rel="stylesheet" href="([^"]+)"[^>]*
   }
   sharedStyles+=`<style data-shared-style="${href}">${style}</style>\n`;
 }
-const html=withGameLoader(withEntrancePresentation(await readFile(resolve(root,'entrance-source/entrance.html'),'utf8'),source),{siteSound:false});
+const html=withGameLoader(withEntrancePresentation(await readFile(resolve(root,'entrance-source/entrance.html'),'utf8'),source),{siteSound:false,deferGameLoader:true});
 await writeFile(resolve(root,'entrance-3d.html'),html
+  .replace('id="story-copy"','id="story-copy" role="region"')
+  .replace(/(<section\b[^>]*class="[^"]*\bstory-opening\b[^"]*"[^>]*aria-hidden=)"true"/,'$1"false"')
   .replace('__ENTRANCE_JS__',`/assets/entrance-3d/${basename(entry)}`)
   .replace('__STARTUP_JS__',`/assets/entrance-3d/${basename(startup)}`)
   .replace('__SHARED_STYLES__',sharedStyles)
