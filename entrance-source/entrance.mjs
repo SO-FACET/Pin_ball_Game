@@ -8,6 +8,7 @@ import { createFrameRatePanel } from './frame-rate-panel.js';
 import { framePlacement } from '/frame-placement.js';
 import { siteSound, CHESS_HIT_FRAME } from '/sounds/site-audio.js?v=frames-f48ace593c02';
 import { captureError } from '../shared/analytics.js';
+import { createLoadTracker, classifyLoadFailure } from '../shared/load-performance.js';
 
 const $=id=>document.getElementById(id);
 const firstFrame=JOURNEY_START_FRAME,lastFrame=CHESS_HIT_FRAME;
@@ -23,6 +24,7 @@ const showFPS=parameters.has('debug')||parameters.has('debug/1')||parameters.has
 const game=$('game-page'),main=$('entrance'),stage=$('scene-frame'),viewport=$('scene-viewport');
 const assembly=createAssemblyClock({reducedMotion:reduced.matches});
 let journey,updateCopy,framing,ready=false,gameLoaded=false,gameRequested=false,gameVisible=false;
+const entranceLoad=createLoadTracker(window,{stage:'entrance',fromNavigation:true,metrics:()=>({renderer:videoEntrance?'video':'webgl',...journey?.loadMetrics})});
 let phase='loading',gameLoader,gameReadyObserver;
 let gameRecovering=false;
 let startupFailed=false;
@@ -83,6 +85,7 @@ function startScene(){
   $('scene-loading-status').setAttribute('data-ready','');
   setTimeout(()=>{$('scene-loading-status').hidden=true},1500);
   phase=assembly.active?'assembly':'idle';document.body.dataset.phase=phase;ready=true;
+  entranceLoad.finish('ready');
   if(history.state?.sofacetGame){enterGame();return;}
   window.scrollTo(0,history.state?.sofacetWorldScroll || 0);
   siteSound.setActive(true);syncScroll();requestTick();
@@ -119,6 +122,7 @@ function showGame(){
 }
 function enterGame({fromChess=false}={}){
   if(gameRequested)return;
+  entranceLoad.finish('cancelled');
   if(!history.state?.sofacetGame){
     const scroll=Math.min(scrollY,journeyScroll.scrollAtFrame(lastFrame-1));
     history.replaceState({...history.state,sofacetWorldScroll:scroll},'');
@@ -264,6 +268,7 @@ try{
   await presentationReady;
   startScene();
 }catch(error){
+  entranceLoad.finish('failed',{failure_code:classifyLoadFailure(error)});
   if(error?.name!=='AbortError')captureError(error,{source:'entrance_startup'});
   startupFailed=true;cancelStartup();
   journey?.dispose();journey=null;

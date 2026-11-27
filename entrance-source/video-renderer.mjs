@@ -216,6 +216,7 @@ export async function createJourneyRenderer({stage,renderView=()=>null,diagnosti
   })();}
   return {
     loadVariant,
+    get loadMetrics(){return preload.metrics},
     renderAt(frame,target){
       stopOpening();targetIndex=Number.isFinite(target)?Math.max(0,Math.min(1830,Math.round(target-JOURNEY_START_FRAME))):null;
       select('journey',Math.max(0,Math.min(1830,Math.round(frame-JOURNEY_START_FRAME))));

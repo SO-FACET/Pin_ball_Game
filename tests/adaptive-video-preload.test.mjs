@@ -93,3 +93,21 @@ test('disposal during fallback manifest loading cannot allocate a replacement bu
   assert.equal(f.requests.length,1);f.preload.dispose();assert.equal(f.requests[0].signal.aborted,true);finish(media(1920));
   await assert.rejects(ready,{name:'AbortError'});assert.equal(f.buffers.length,1);assert.equal(f.intervals.size,0);
 });
+
+test('load telemetry includes discarded 4K bytes once and distinguishes cached HD bytes',async()=>{
+ const f=fixture(),ready=f.preload.load();
+ for(let now=250;now<=2000;now+=250)f.tick(now,now*100);
+ await turn();
+ f.buffers[1].progress(1882825,60000000);f.buffers[1].finish();await ready;
+ assert.deepEqual(f.preload.metrics,{video_width:1920,media_bytes:61882825,network_bytes:2082825,cached_bytes:60000000,
+  discarded_bytes:200000,quality_switches:1,download_attempts:2,selection_reason:'slow-network'});
+ f.preload.dispose();
+});
+
+test('a cache-only entrance reports zero network bytes without changing the quality decision',async()=>{
+ const f=fixture(),ready=f.preload.load();f.buffers[0].networkProgress={bytes:0,startedAt:null,active:0};
+ f.buffers[0].progress(0,200000000);f.buffers[0].finish();await ready;
+ assert.equal(f.preload.metrics.network_bytes,0);assert.equal(f.preload.metrics.cached_bytes,200000000);
+ assert.equal(f.preload.metrics.discarded_bytes,0);assert.equal(f.preload.metrics.download_attempts,1);
+ assert.equal(f.preload.metrics.video_width,3840);f.preload.dispose();
+});

@@ -1,3 +1,5 @@
+import {createLoadTracker} from '../shared/load-performance.js';
+
 export function installGameLoader(renderCards) {
  if(window.sofacetGameLoader)return;
  const root=document.getElementById('game-loading-screen');
@@ -7,11 +9,12 @@ export function installGameLoader(renderCards) {
  const statements=[...cards.querySelectorAll('.card-copy')].map(copy=>[...copy.children].map(line=>line.innerHTML).join('<br>'));
  const gamePage=document.body.hasAttribute('data-game-loading'),motion=matchMedia('(prefers-reduced-motion: reduce)');
  const parentOwnsCards=gamePage&&parent!==window&&new URL(location.href).searchParams.get('loader')==='parent';
+ const ownsLoadTiming=!parentOwnsCards&&(gamePage||root.hasAttribute('data-managed'));
  const chessEntry=gamePage&&new URL(location.href).searchParams.get('from')==='chess';
  const visitedKey='sofacet-game-visited';
  const hasVisited=()=>{try{return sessionStorage.getItem(visitedKey)==='1'}catch{return false}};
  let active=false,failed=false,parentVisible=parent===window,fade,delay,observer,pageObserver,events,blocked=[];
- let run=0,tableReady=false,cardsComplete=false,progressOnly=false,progressValue=0,loadTracked=false;
+ let run=0,tableReady=false,cardsComplete=false,progressOnly=false,progressValue=0,loadTracked=false,loadTiming;
  function trackLoading(){
   if(parentOwnsCards||!active||loadTracked||window.sofacetAnalytics?.getStatus?.().enabled===false||!window.sofacetAnalytics)return;
   window.sofacetAnalytics.track('game_load_started');loadTracked=true;
@@ -71,6 +74,7 @@ export function installGameLoader(renderCards) {
   root.dataset.loader=progressOnly?'progress':'cards';progress.hidden=!progressOnly;
   progressValue=0;updateProgress(0);
   run++;tableReady=false;cardsComplete=parentOwnsCards||progressOnly;
+  if(ownsLoadTiming)loadTiming=createLoadTracker(window,{stage:'game',fromNavigation:gamePage&&run===1,metrics:()=>({progress_percent:progressValue})});
   status.firstChild.textContent='Preparing your game… ';
   blocked=[...document.querySelectorAll('#stage')].map(element=>[element,element.inert]);for(const [element] of blocked)element.inert=true;
   events=new AbortController();const signal=events.signal;
@@ -84,6 +88,7 @@ export function installGameLoader(renderCards) {
   delay=setTimeout(()=>{if(active&&!failed)status.firstChild.textContent='Still preparing your game. Please wait. '},20000);
  }
  function hide(){
+  loadTiming?.finish('cancelled');
   clearTimeout(fade);cleanup();active=false;root.hidden=true;delete root.dataset.state;paint();
   for(const [element,inert] of blocked)element.inert=inert;blocked=[];
   const stage=document.getElementById('stage');if(gamePage&&stage?.dataset.ready==='true'){stage.inert=false;document.body.removeAttribute('data-game-loading')}
@@ -100,6 +105,7 @@ export function installGameLoader(renderCards) {
   cleanup();active=false;
   const stage=document.getElementById('stage');if(stage){stage.inert=false;stage.dataset.ready='true';stage.setAttribute('aria-busy','false')}
   blocked=[];root.dataset.state='leaving';
+  loadTiming?.finish('ready');
   root.dispatchEvent(new CustomEvent('sofacet:game-loader-ready'));
   if(!parentOwnsCards){window.sofacetAnalytics?.track('game_ready');try{(window.top||window).sofacetMetaPixel?.track('ViewContent',{content_name:'Pinball'},'pinball-load:'+run)}catch{}}
   fade=setTimeout(()=>{root.hidden=true;document.body.removeAttribute('data-game-loading');paint();},motion.matches?0:400);
@@ -112,7 +118,7 @@ export function installGameLoader(renderCards) {
   window.sofacetAnalytics?.track('game_load_failed',{phase,code});
   window.sofacetAnalytics?.captureError(new Error('Game startup failed: '+phase+' '+code),{source:'game_loader'});
   if(gamePage)try{void fetch('/api/game-load-failure',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'omit',keepalive:true,body:JSON.stringify({phase,code,embedded:parent!==window})}).catch(()=>{})}catch{}
-  if(root.hidden)show();clearTimeout(fade);failed=true;cleanup();active=false;cards.hidden=true;progress.hidden=true;paint();error.hidden=false;root.dataset.state='error';document.getElementById('stage')?.setAttribute('aria-busy','false');
+  if(root.hidden)show();loadTiming?.finish('failed',{failure_code:code});clearTimeout(fade);failed=true;cleanup();active=false;cards.hidden=true;progress.hidden=true;paint();error.hidden=false;root.dataset.state='error';document.getElementById('stage')?.setAttribute('aria-busy','false');
  }
  const style=document.getElementById('game-entry-style');
  const stylesReady=style?.dataset.failed?Promise.reject(Error('Game styles unavailable')):!style||style.sheet?Promise.resolve():new Promise((resolve,reject)=>{style.addEventListener('load',resolve,{once:true});style.addEventListener('error',()=>reject(Error('Game styles unavailable')),{once:true})});

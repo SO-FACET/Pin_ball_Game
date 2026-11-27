@@ -1,5 +1,8 @@
 import {safePath} from './runtime.js';
 
+// Keep this event within GA's parameter budget; PostHog receives the full schema.
+const googleLoadKeys=new Set(['page_path','environment','release','load_stage','load_outcome','duration_ms','video_width','media_bytes','network_bytes','cached_bytes','discarded_bytes','quality_switches','selection_reason','device_type','device_model','browser','os','viewport_width','viewport_height','effective_type','downlink_mbps','rtt_ms']);
+
 export function googleProvider(win,config,userId=null){
  const id=config.gaId;
  win['ga-disable-'+id]=false;
@@ -18,7 +21,7 @@ export function googleProvider(win,config,userId=null){
  let script=win.document.getElementById('sofacet-ga');
  if(!script){script=win.document.createElement('script');script.id='sofacet-ga';script.async=true;script.referrerPolicy='no-referrer';script.src='https://www.googletagmanager.com/gtag/js?id='+encodeURIComponent(id);win.document.head.append(script)}
  return {
-  track(name,properties){if(name==='page_view')configure(properties.page_path);gtag('event',name,{...properties,...metadata(properties.page_path),send_to:id})},
+  track(name,properties){if(name==='page_view')configure(properties.page_path);const values=name==='load_performance'?Object.fromEntries(Object.entries(properties).filter(([key])=>googleLoadKeys.has(key))):properties;gtag('event',name,{...values,...metadata(properties.page_path),send_to:id})},
   identify(value){userId=value;configure()},
   stop(){
    win['ga-disable-'+id]=true;

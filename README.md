@@ -51,8 +51,23 @@ For native Google Analytics destination tags, also set `send_page_view=false`, `
 | `otp_requested`, `otp_verified`, `login`, `sign_up`, `profile_updated`, `logout`, `first_cuts_registered` | Confirmed API outcomes, never successful conversions for failed OTPs or incomplete responses |
 | `form_submit`, `form_invalid`, `api_request`, `client_error`, `share` | Bounded diagnostics and sharing; no input values, request bodies or contact addresses |
 | `ui_change`, `ui_toggle`, `scroll_depth`, `game_control` | Named selection/toggle actions, scroll milestones and launcher/flipper press/release transitions; no typed or selected values |
+| `load_performance` | Device, connection and startup measurements for every analytics-consented visit; `load_stage` separates page, entrance and game, and `load_outcome` separates started, slow, ready, failed, abandoned and cancelled attempts |
 
 `game_finished` is a client result; `score_verified` is server verified. Event counts are not a financial ledger. Repeated successful idempotent reward requests can produce repeated `reward_saved` events. Names, email addresses, phone numbers, OTPs, game IDs and authentication tokens are excluded from provider event properties. New events must be added to the explicit allowed-property schema in `analytics-source/runtime.js`.
+
+#### Device and loading performance
+
+`load_performance` measures `duration_ms` from navigation until the entrance loading logo disappears. Game measurements cover the outer game loader, including the cards, and suppress the duplicate embedded loader. A separately labelled `page` stage records document `loadEventEnd`, TTFB (`ttfb_ms`) and DOM readiness (`dom_ready_ms`); document loading can finish well before a 30-second entrance wait.
+
+Each entrance/game attempt reports its start, a single slow checkpoint at 15 seconds, and one terminal outcome. Page exit while loading is `abandoned`; a persisted back/forward-cache transition is not treated as an exit. `active_ms` subtracts observed hidden intervals, and `was_hidden` lets analyses exclude backgrounded visits. Delivery on mobile process termination remains best effort.
+
+PostHog receives browser/OS family and major version, device category, the best available `device_model`, viewport/screen dimensions, pixel ratio, and browser-exposed memory/core counts. Supported Android browsers can supply model/platform client hints; the lookup runs only after consent, has a 500 ms delivery deadline and never holds up the loader. Safari normally exposes the iPhone/iPad family rather than an exact hardware model. Missing information stays unknown; an effective `4g` connection is not relabelled as cellular or Wi-Fi. Browser-provided downlink and RTT are estimates.
+
+Entrance events also carry `video_width`, `media_bytes`, `network_bytes`, `cached_bytes`, `discarded_bytes`, `quality_switches`, `download_attempts` and `selection_reason`. Network bytes include discarded preload attempts; cached bytes describe the selected variant read from browser Cache Storage. They describe the video preloader, not total page bandwidth or CDN billing. GA4 receives a bounded projection of the same event; PostHog retains the richer device, visibility and attempt fields. Provider session/user handling remains the same as other application events.
+
+These measurements are not sampled by the application and do not require Session replay or sign-in. They use the existing Analytics consent: a bounded set of numeric local loading summaries can supply the current document's original timing when consent arrives after loading, while no provider or model-hint lookup runs before consent. Revocation stops delivery and pending model enrichment. Raw user-agent strings, contact details, device serials and authentication data are excluded. Browser blocking or rejected Analytics consent prevents collection; this is not a census of visitors who opted out.
+
+For a loading report, filter `event=load_performance`, `load_stage=entrance` and `load_outcome=ready`; calculate median and p95 of `duration_ms`, grouped by `device_model`, browser/OS, connection, `video_width` and release. Compare `network_bytes=0` cached visits with network visits, and use `discarded_bytes>0` to identify quality-fallback overhead. Use started/abandoned/failed outcomes to retain the slow visitors who never reach readiness. In GA4, register `duration_ms` as an event-scoped custom metric in milliseconds and the relevant load/device properties as event-scoped custom dimensions before using them in Explorations.
 
 #### Active page and gameplay time
 

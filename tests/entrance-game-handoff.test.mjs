@@ -79,7 +79,7 @@ test('scrolling back from the final frame cancels automatic entry into the cards
 });
 
 function entrance(){
- const timers=new Map(),events=[],redirects=[];let now=0,id=0,observer;
+ const timers=new Map(),events=[],redirects=[],loads=[];let now=0,id=0,observer;
  const stage={dataset:{ready:'false'},busy:'true',getAttribute(){return this.busy}};
  const game=new EventTarget();
  game.getAttribute=()=>game.src;
@@ -92,7 +92,7 @@ function entrance(){
   show(options){this.shown++;this.options=options;events.push('show-loader')},fail(){this.failed=true;this.failures++},
   ready(){this.readyCalls++;if(!this.failed)context.showGame()},
  };
- const context={cancelStartup(){},game,gameLoader:loader,main:{setAttribute(){}},
+ const context={cancelStartup(){},game,gameLoader:loader,main:{setAttribute(){}},entranceLoad:{finish:outcome=>loads.push(outcome)},
   history:{state:null,replaceState(value){this.state=value},pushState(value){this.state=value}},
   journeyScroll:{scrollAtFrame:()=>100},lastFrame:40,scrollY:100,
   document:{body:{dataset:{},setAttribute(){}}},location:{origin:'http://localhost',replace:url=>redirects.push(url)},
@@ -104,7 +104,7 @@ function entrance(){
   clearTimeout(key){timers.delete(key)},
  };
  vm.runInNewContext(`let gameRequested=false,gameLoaded=false,gameVisible=false,gameRecovering=false,raf=0,openingPlayback,gameReadyObserver;${handoff};this.state=()=>({gameRequested,gameLoaded,gameVisible});`,context);
- return{context,loader,stage,game,events,redirects,
+ return{context,loader,stage,game,events,redirects,loads,
   enter(options){context.enterGame(options)},
   frameLoaded(){game.dispatchEvent(new Event('load'))},
   ready(){stage.dataset.ready='true';stage.busy='false';observer.callback()},
@@ -115,6 +115,7 @@ function entrance(){
 
 test('a cold download lasting over 45 seconds still hands off when ready',()=>{
  const view=entrance();view.enter();view.frameLoaded();
+ assert.deepEqual(view.loads,['cancelled']);
  view.advance(75000);
  assert.equal(view.events.includes('stop-audio'),false,'Website music continues during cards and game loading');
  assert.equal(view.loader.failures,0,'Elapsed time alone is not a loading failure');
