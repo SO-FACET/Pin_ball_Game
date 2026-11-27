@@ -31,12 +31,37 @@ test('the first screen measures real image readiness without importing a cinemat
  assert.equal(f.window.__sofacetLoadMetrics.entries.at(-1).properties.renderer,'poster');
 });
 
-test('Explore starts the cinematic once and its timer includes the dynamic import',async()=>{
+test('the accessible fallback starts the cinematic once and its timer includes the dynamic import',async()=>{
  const f=fixture();await turn();f.advance(5000);f.click();f.click();await f.context.startExperience();
  assert.equal(f.imports,1);assert.equal(f.window.__sofacetExperienceStart,5000);
  assert.equal(f.main.inert,true);assert.equal(f.attributes.has('data-loading'),true);assert.equal(f.attributes.has('data-awaiting-explore'),false);
  f.advance(5300);const timer=createLoadTracker(f.window,{stage:'cinematic',startAt:f.window.__sofacetExperienceStart});
  f.advance(8000);timer.finish();assert.equal(f.window.__sofacetLoadMetrics.entries.at(-1).properties.duration_ms,3000);
+});
+
+test('the first touch, scroll or navigation key starts the cinematic without an Explore click',async()=>{
+ for(const type of ['pointerdown','touchstart','wheel','keydown']){
+  const f=fixture();await turn();f.advance(2000);
+  const event=new Event(type);if(type==='keydown')event.key='ArrowDown';
+  f.window.dispatchEvent(event);assert.equal(f.imports,1);assert.equal(f.window.__sofacetExperienceStart,2000);
+  f.window.dispatchEvent(new Event('touchstart'));await f.context.startExperience();assert.equal(f.imports,1);
+ }
+});
+
+test('cookie/navigation controls, open settings and unrelated keys do not start the movie',async()=>{
+ const f=fixture();await turn();
+ const control=new Event('pointerdown');Object.defineProperty(control,'target',{value:{closest:()=>({})}});f.window.dispatchEvent(control);
+ const tab=new Event('keydown');tab.key='Tab';f.window.dispatchEvent(tab);
+ f.window.document.documentElement={dataset:{cookieSettingsOpen:'true'}};f.window.dispatchEvent(new Event('touchstart'));
+ assert.equal(f.imports,0);
+ f.window.document.documentElement.dataset.cookieSettingsOpen='false';f.window.dispatchEvent(new Event('touchstart'));assert.equal(f.imports,1);
+});
+
+test('a first touch before the poster decodes cancels only the pending first-screen measurement',async()=>{
+ let resolve;const f=fixture({decode:new Promise(yes=>{resolve=yes})});f.window.dispatchEvent(new Event('touchstart'));
+ resolve();await turn();
+ assert.deepEqual(f.window.__sofacetLoadMetrics.entries.map(x=>x.properties.load_outcome),['started','cancelled']);
+ assert.equal(f.imports,1);
 });
 
 test('explicit comparisons and restored story/game positions retain automatic startup',async()=>{
