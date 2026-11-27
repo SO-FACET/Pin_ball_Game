@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {withGameLoader} from '../scripts/game-loader-shell.mjs';
-const source=readFileSync(new URL('../loader-source/controller.js',import.meta.url),'utf8').replace('export function','function');
-function loader({reduced=false,embedded=false,parentOwnsCards=false,managed=false,images=[],cssReady=true,visited=false,chess=false,storageBlocked=false}={}){
+import {createLoadTracker} from '../shared/load-performance.js';
+const source=readFileSync(new URL('../loader-source/controller.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/gm,'').replace('export function','function');
+function loader({reduced=false,embedded=false,parentOwnsCards=false,managed=false,sitePage=false,images=[],cssReady=true,visited=false,chess=false,storageBlocked=false}={}){
  const timers=new Map(),renders=[],reports=[],analytics=[],meta=[];let id=0;
  const node=()=>({hidden:false,dataset:{},style:{setProperty(){}},firstChild:{textContent:''},setAttribute(name,value){this[name]=value}});
  const root=node(),stage=node(),error=node(),status=node(),cards=node(),progress=node(),retry=node(),rootEvents=new EventTarget();
@@ -15,16 +16,29 @@ function loader({reduced=false,embedded=false,parentOwnsCards=false,managed=fals
  cards.hidden=true;cards.querySelectorAll=selector=>selector==='img'?images:[['Up Next:','Pinball'],['Score SO/ COINS.','Save them for<br>SO/ FACET diamond jewellery.'],['1,000 SO/ COINS = ₹100 OFF','SO/ FACET DIAMOND JEWELLERY']].map(lines=>({children:lines.map(innerHTML=>({innerHTML}))}));
  root.addEventListener=rootEvents.addEventListener.bind(rootEvents);root.dispatchEvent=rootEvents.dispatchEvent.bind(rootEvents);root.hasAttribute=name=>managed&&name==='data-managed';stage.inert=true;stage.dataset.ready='false';
  root.querySelector=selector=>({'#game-loader-cards-root':cards,'.loading-copy':status,'.game-loading-progress':progress,'.game-loading-error':error,'[data-game-retry]':retry}[selector]);
- const document=new EventTarget(),window=new EventTarget();document.body={hasAttribute:name=>!managed&&name==='data-game-loading',removeAttribute(){}};document.hidden=false;
+ const document=new EventTarget(),window=new EventTarget();document.body={hasAttribute:name=>!managed&&!sitePage&&name==='data-game-loading',removeAttribute(){}};document.hidden=false;
  window.sofacetMetaPixel={track:(...args)=>meta.push(args)};
  window.sofacetAnalytics={track:(name,properties)=>analytics.push({name,properties}),captureError(){}};
  document.getElementById=id=>({'game-loading-screen':root,stage,'game-page':{contentWindow:childWindow},'game-loader-controller':{dataset:{gameEntry:''}},'game-loader-critical':{sheet:{}}}[id]);document.querySelectorAll=selector=>selector==='#stage'?[stage]:[];
  const url=new URL('http://localhost/play.html');if(parentOwnsCards)url.searchParams.set('loader','parent');if(chess)url.searchParams.set('from','chess');
  const context={CustomEvent,window,document,sessionStorage,parent:embedded?{postMessage:data=>parentMessages.push(data)}:window,location:{origin:'http://localhost',href:url.href},URL,matchMedia:()=>({matches:reduced}),AbortController,ResizeObserver:class{observe(){}disconnect(){}},visualViewport:null,addEventListener:window.addEventListener.bind(window),requestAnimationFrame:()=>++id,setTimeout:(callback,duration)=>{const key=++id;timers.set(key,{callback,duration});return key},clearTimeout:key=>timers.delete(key),console:{error(){}},fetch:async(url,options)=>reports.push({url,...options}),renderCards:(element,active,run,onComplete)=>renders.push({element,active,run,onComplete})};
  context.getComputedStyle=()=>({getPropertyValue:()=>cssReady?'1':''});
+ context.createLoadTracker=createLoadTracker;
+ Object.assign(window,{CustomEvent,document,location:context.location,performance:{now:()=>0},setTimeout:context.setTimeout,clearTimeout:context.clearTimeout});
  vm.runInNewContext(source+';installGameLoader(renderCards)',context);
  return{api:window.sofacetGameLoader,root,stage,error,status,progress,fill,statement,childWindow,parentMessages,storage,renders,reports,analytics,meta,document,window,timers,finishCards(){renders.at(-1).onComplete()},flushFade(){for(const [key,timer]of timers)if(timer.duration<=400){timers.delete(key);timer.callback()}}};
 }
+
+test('load performance has one real game owner and does not mistake an information-page handoff for abandonment',()=>{
+ const direct=loader({visited:true});direct.api.ready();direct.api.ready();
+ assert.deepEqual(direct.window.__sofacetLoadMetrics.entries.map(x=>[x.properties.load_stage,x.properties.load_outcome]),[['game','started'],['game','ready']]);
+ const outer=loader({managed:true,visited:true});outer.api.show();outer.api.ready();
+ assert.deepEqual(outer.window.__sofacetLoadMetrics.entries.map(x=>x.properties.load_outcome),['started','ready']);
+ const child=loader({embedded:true,parentOwnsCards:true});child.api.ready();
+ assert.equal(child.window.__sofacetLoadMetrics,undefined);
+ const information=loader({sitePage:true});information.api.show();information.window.dispatchEvent(new Event('pagehide'));
+ assert.equal(information.window.__sofacetLoadMetrics,undefined,'The destination game document measures this navigation');
+});
 
 test('determinate progress never regresses and reaches 100 only when the game is ready',()=>{
  const view=loader({visited:true});assert.match(view.statement.innerHTML,/Up Next:/);assert.equal(view.fill.style.transform,'scaleX(0)');

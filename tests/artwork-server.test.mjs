@@ -24,13 +24,13 @@ async function withServer(base, check) {
 
 test('runtime artwork configuration reaches HTML and HEAD without changing document caching or error status',async()=>{
   await withServer('https://media.sofacet.com/',async origin=>{
-    const get=await fetch(origin+'/'),body=await get.text();
+    const get=await fetch(origin+'/',{headers:{'Accept-Encoding':'identity'}}),body=await get.text();
     assert.equal(get.status,200);
     assert.equal(get.headers.get('cache-control'),'no-cache');
     assert.equal((body.match(/name="sofacet-artwork-cdn"/g)||[]).length,1);
     assert.ok(body.includes('content="https://media.sofacet.com"'));
     assert.equal(Number(get.headers.get('content-length')),Buffer.byteLength(body));
-    const head=await fetch(origin+'/',{method:'HEAD'});
+    const head=await fetch(origin+'/',{method:'HEAD',headers:{'Accept-Encoding':'identity'}});
     assert.equal(head.status,200);
     assert.equal(head.headers.get('content-length'),get.headers.get('content-length'));
     assert.equal(await head.text(),'');

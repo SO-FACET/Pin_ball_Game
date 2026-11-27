@@ -90,9 +90,9 @@ export default function ClaimPage({pageTitle='SO/ FACET — My SO/ COINS',result
     <ClaimMesh />
     <main ref={page} className={"page text-layer"+(leaving||confirmation&&!showConfirmation?" claim-copy-leaving":"")}>
       <ClaimArtwork />
-      {!confirmation && (onBack || onClose) && <div className="claim-navigation">
-        {onBack && <button className="claim-back" type="button" data-analytics-control="claim_back" onClick={onBack} disabled={working}>← Back</button>}
-        {onClose && <button type="button" className="auth-flow-close" data-analytics-control="claim_close" aria-label="Close account form" onClick={onClose}>×</button>}
+      {(onClose || !confirmation && onBack) && <div className="claim-navigation">
+        {!confirmation && onBack && <button className="claim-back" type="button" data-analytics-control="claim_back" onClick={onBack} disabled={working}>← Back</button>}
+        {onClose && <button type="button" className="auth-flow-close" data-analytics-control="claim_close" aria-label={confirmation?'Exit to Launching Soon':'Close account form'} onClick={onClose}>×</button>}
       </div>}
       <header className="brand"><span className="wordmark">{showConfirmation?'SO/ SAVED':result?'MEMBERSHIP':'THE SO/ COLLECTIVE'}</span></header>
       <section aria-label={showConfirmation?"Your saved SO/ COINS":detailsStep?"Confirm your details":"Claim your reward — OTP verification"} className={"content"+(showConfirmation?" claim-confirmation":detailsStep?" claim-details":"")} inert={leaving||confirmation&&!showConfirmation?true:undefined}>

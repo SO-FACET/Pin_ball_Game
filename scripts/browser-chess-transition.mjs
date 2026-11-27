@@ -6,15 +6,15 @@ const require=createRequire(import.meta.url),{webkit,chromium,devices}=require(p
 const engine=process.env.SOFACET_BROWSER||'webkit',url=new URL(process.env.SOFACET_ENTRANCE_URL||'http://127.0.0.1:8886/');url.searchParams.set('entrance','1');url.hash='experience';
 const browser=await ({webkit,chromium}[engine]).launch(engine==='chromium'?{args:['--enable-gpu']}:{}),scroll=createJourneyScrollMap(),report=[];
 await mkdir('work/chess-transition',{recursive:true});
-// The configured crossing now advances at 360 source frames/s, with each update
-// capped at 50ms. A slow renderer may therefore show 18 source frames per RAF;
-// the 200-frame core still needs at least 11 distinct poses and both boundaries.
-const coreStart=1440,coreEnd=1640,crossingFPS=360,maxUpdateMs=50;
+// The configured crossing advances at the restored 240 source frames/s, with each update
+// capped at 50ms. A slow renderer may therefore show 12 source frames per RAF;
+// the 200-frame core still needs at least 16 distinct poses and both boundaries.
+const coreStart=1440,coreEnd=1640,crossingFPS=240,maxUpdateMs=50;
 const maxCoreStep=crossingFPS*maxUpdateMs/1000+.1;
 const minimumCorePoses=Math.floor((coreEnd-coreStart)/(maxCoreStep-.1));
 // The full test leg integrates to 240 source frames of protected crossing time:
-// 667ms at the new pace. Allow RAF/first-update timing, while rejecting a jump.
-const minimumDurationMs=500;
+// 1000ms at the restored pace. Allow RAF/first-update timing, while rejecting a jump.
+const minimumDurationMs=800;
 try{
  for(const [name,options] of [['phone',{...devices['iPhone 13'],viewport:{width:393,height:735}}],['desktop',{viewport:{width:1280,height:720}}]]){
   const page=await browser.newPage(options),errors=[];page.on('pageerror',e=>errors.push(e.message));

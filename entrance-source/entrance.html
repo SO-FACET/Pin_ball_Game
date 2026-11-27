@@ -3,20 +3,21 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>SO/ FACET — What's yours?</title>
+  <meta name="description" content="Play pinball, score SO/ COINS, and save them for SO/ FACET lab-grown diamond jewellery.">
   <base href="/">
   <link rel="icon" href="data:,">
   <script>if(location.hash==='#experience')document.documentElement.setAttribute('data-skip-intro','')</script>
   __SHARED_STYLES__
   <style data-entrance-style>__ENTRANCE_CSS__</style>
-  <link rel="preload" href="/assets/fonts/sofacet-score-josefin-semibold.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="preload" href="/assets/fonts/sofacet-score-josefin-regular.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/assets/fonts/sofacet-score-josefin-semibold.woff2" as="font" type="font/woff2" crossorigin>
 </head>
-<body data-phase="buffering" data-loading>
+<body data-phase="welcome" data-awaiting-explore>
   __SHARED_LOADER__
-  <script type="module" src="__STARTUP_JS__"></script>
-  <main id="entrance" aria-label="Explore the SO/ FACET world" inert aria-hidden="true">
+  <main id="entrance" aria-label="Explore the SO/ FACET world">
     <div id="scene-viewport">
       <div id="scene-frame" aria-hidden="true"></div>
-      <img id="scene-poster" src="/assets/opening-poster.webp" alt="" aria-hidden="true">
+      <img id="scene-poster" src="/assets/opening-poster-optimized.webp" width="1920" height="1080" fetchpriority="high" alt="" aria-hidden="true">
     </div>
     __SHARED_COPY__
     __SHARED_BRAND__
@@ -27,13 +28,13 @@
       <p id="preparation-status" data-scene-status role="status">Growing the diamonds…</p>
       <progress data-scene-progress max="100" aria-label="World download"></progress>
     </section>
-    <button id="scroll-hint" type="button">Scroll Up to Explore <span aria-hidden="true">↑</span></button>
+    <button id="scroll-hint" type="button">Explore <span aria-hidden="true">↑</span></button>
     __SHARED_SOCIAL__
     <div id="progress" aria-hidden="true"></div>
   </main>
   <iframe id="game-page" title="SO/ FACET pinball game" aria-hidden="true" inert></iframe>
   <div id="scroll-space" aria-hidden="true"></div>
-  <noscript><style>#site-loader,#entrance{display:none}</style><a class="play-now" href="/game">Play SOFACET</a></noscript>
+  <noscript><p>Explore the cinematic with JavaScript enabled, or <a href="/game">play SOFACET pinball</a>.</p></noscript>
   __SHARED_SOCIAL_MODULE__
   __SHARED_NAVIGATION_MODULE__
   <script type="module" src="__ENTRANCE_JS__"></script>

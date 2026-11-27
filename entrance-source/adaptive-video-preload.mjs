@@ -18,11 +18,14 @@ export function createAdaptiveVideoPreload(initialMedia,{onProgress=()=>{},fetch
   createBuffer=createPreloadedVideo,loadMedia=loadEntranceMedia,clock=()=>performance.now(),
   document=globalThis.document,timers=globalThis}={}){
   const lifetime=new AbortController();
-  let media=initialMedia,buffer,loading,loaded=0;
+  let media=initialMedia,buffer,loading,loaded=0,discardedNetwork=0,attempts=0;
+  const archived=new WeakSet();
+  const networkBytes=()=>buffer?.networkProgress?.bytes||0;
+  const disposeBuffer=()=>{if(!archived.has(buffer)){discardedNetwork+=networkBytes();archived.add(buffer)}buffer.dispose()};
   let selection={reason:media.selectionReason??'preferred',width:media.manifest.width,switches:0,discardedBytes:0};
   const check=()=>lifetime.signal.throwIfAborted();
   const makeBuffer=()=>{
-    loaded=0;
+    loaded=0;attempts++;
     return createBuffer(filesFor(media),{fetcher,clock,bypassHTTPCache:media.manifest.width===3840,
       onProgress:(value,total)=>{loaded=value;onProgress(value,total)}});
   };
@@ -43,7 +46,7 @@ export function createAdaptiveVideoPreload(initialMedia,{onProgress=()=>{},fetch
         const transfer=buffer.networkProgress;
         if(!transfer)return;
         const decision=policy.observe({...transfer,now:clock(),loaded,total:buffer.bytes,hidden:document?.hidden===true});
-        if(decision){selection={...selection,...decision,width:1920,switches:1};buffer.dispose();}
+        if(decision){selection={...selection,...decision,width:1920,switches:1};disposeBuffer();}
         else if(policy.diagnostic){
           const {mbps,observedMs,estimatedRemainingMs}=policy.diagnostic;
           selection={...selection,mbps,observedMs,estimatedRemainingMs};
@@ -61,7 +64,7 @@ export function createAdaptiveVideoPreload(initialMedia,{onProgress=()=>{},fetch
   async function load(){
     try{await preload(media.manifest.width===3840);}
     catch(error){
-      check();buffer.dispose();
+      check();disposeBuffer();
       if(media.manifest.width===3840){
         const slow=selection.reason==='slow-network';
         selection={...selection,reason:slow?'slow-network':'cdn-fallback',width:1920,switches:1};
@@ -72,7 +75,7 @@ export function createAdaptiveVideoPreload(initialMedia,{onProgress=()=>{},fetch
         if(media.manifest.width!==1920)media=bundledMedia(media);
         buffer=makeBuffer();
         try{await preload(false);}
-        catch(error){check();buffer.dispose();if(isBundled())throw error;media=bundledMedia(media);selection={...selection,reason:'local-fallback'};buffer=makeBuffer();await preload(false);}
+        catch(error){check();disposeBuffer();if(isBundled())throw error;media=bundledMedia(media);selection={...selection,reason:'local-fallback'};buffer=makeBuffer();await preload(false);}
       }else{
         if(isBundled())throw error;
         media=bundledMedia(media);selection={...selection,reason:'local-fallback',width:1920};
@@ -84,6 +87,9 @@ export function createAdaptiveVideoPreload(initialMedia,{onProgress=()=>{},fetch
   return {
     load(){return loading??=load()},
     get selection(){return {...selection}},
+    get metrics(){const current=networkBytes();return {video_width:media.manifest.width,media_bytes:buffer.bytes,
+      network_bytes:discardedNetwork+(archived.has(buffer)?0:current),cached_bytes:Math.max(0,loaded-current),
+      discarded_bytes:discardedNetwork,quality_switches:selection.switches,download_attempts:attempts,selection_reason:selection.reason}},
     dispose(){lifetime.abort(new DOMException('Entrance preload disposed','AbortError'));buffer.dispose()},
   };
 }

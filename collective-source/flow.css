@@ -8,7 +8,8 @@
 .auth-flow-back{position:fixed;z-index:30;right:80px;top:16px;min-height:44px;padding:8px 12px;border:0;background:transparent;color:#fff;font:15px/1.5 'Josefin Sans',sans-serif;cursor:pointer}
 :is(#account-root,#membership-root,#launch-root) .design-claim .claim-navigation{position:absolute;left:6.2%;right:calc(var(--site-nav-right,24px) + env(safe-area-inset-right,0px));top:96px;z-index:4;display:flex;align-items:center;pointer-events:none}
 :is(#account-root,#membership-root,#launch-root) .design-claim .claim-back{min-height:44px;padding:8px 0;border:0;background:transparent;color:#eee;font:15px/1.4 'Josefin Sans',sans-serif;cursor:pointer;pointer-events:auto}
-.claim-navigation .auth-flow-close{position:static;margin-inline-start:auto;pointer-events:auto}
+:is(#account-root,#membership-root,#launch-root) .design-claim .claim-navigation .auth-flow-close{position:static;margin-left:auto!important;pointer-events:auto;font:32px/1 'Josefin Sans',sans-serif}
+@layer site-interface{:is(#account-root,#membership-root,#launch-root) .design-claim .claim-navigation .auth-flow-close{font-family:'Josefin Sans',sans-serif!important}}
 body[data-menu-open] .claim-navigation .auth-flow-close{visibility:hidden}
 .design-claim .claim-otp-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end}
 :is(#account-root,#membership-root,#launch-root) .design-claim .claim-otp-row .otp-field{min-width:0;margin:0!important}

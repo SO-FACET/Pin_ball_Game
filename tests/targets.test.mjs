@@ -18,7 +18,7 @@ test('only the nine new marked slots are eligible, with one elevated rail slot',
  assert.equal(ids.size,9);assert.equal(pool.slots.filter(s=>s.surface_type==='floor').length,8);assert.equal(pool.slots.filter(s=>s.surface_type==='rail').length,1);
  assert.equal(manifest.target_gameplay.length,7);
  for(const target of manifest.target_gameplay){
-  assert.equal(target.placements.length,9);assert.deepEqual(new Set(target.placements.map(p=>p.slot)),ids);assert.ok(target.placements.every(p=>p.safe&&p.slot.startsWith('target_20261020_')));assert.equal(target.score,1100);
+  assert.equal(target.placements.length,9);assert.deepEqual(new Set(target.placements.map(p=>p.slot)),ids);assert.ok(target.placements.every(p=>p.safe&&p.slot.startsWith('target_20261020_')));assert.equal(target.score,1200);
   const initial=target.placements.find(p=>p.slot===target.initial_slot);assert.ok(initial);assert.deepEqual(target.initial_position,initial.position);
  }
  assert.equal(manifest.asset_checksums['target-slot-pool.json'],createHash('sha256').update(readFileSync(asset('target-slot-pool.json'))).digest('hex'));
@@ -55,7 +55,7 @@ test('every letter can be collected at every new slot, with the correct surface 
   const targets=new LetterTargets([definition],manifest.ball_diameter/2);targets.random=seededRandom(123);targets.poses.splice(0,targets.poses.length,{id:definition.id,slot:placement.slot,surface:placement.surface,position:[...placement.position]});
   const [x,y,z]=placement.position,cy=y+(definition.bounds_local[0][1]+definition.bounds_local[1][1])/2;let score=0;
   targets.passage([x-.045,cy,z],[x+.045,cy,z],placement.surface==='floor'?'rail':'floor',()=>score+=definition.score);assert.equal(score,0);
-  targets.passage([x-.045,cy,z],[x+.045,cy,z],placement.surface,()=>score+=definition.score);assert.equal(score,1100,definition.id+' at '+placement.slot);assert.notEqual(targets.poses[0].slot,placement.slot);
+  targets.passage([x-.045,cy,z],[x+.045,cy,z],placement.surface,()=>score+=definition.score);assert.equal(score,1200,definition.id+' at '+placement.slot);assert.notEqual(targets.poses[0].slot,placement.slot);
  }
 });
 
@@ -67,5 +67,5 @@ test('the left-drum slot is between the raised rails and is collected by actual 
  let hits=0;physics.targets.passage([support[0]-.045,physics.floorY,support[2]],[support[0]+.045,physics.floorY,support[2]],'floor',id=>{if(id==='target_s')hits++});assert.equal(hits,0);
  physics.targets.poses.splice(0,physics.targets.poses.length,{id:target.id,slot:slot.slot_id,surface:'rail',position:[...placement.position]});physics.state='playing';physics.laneExited=true;physics.enterRail(0);
  for(let tick=0;tick<240&&physics.targetPasses===0;tick++)physics.tick({left:false,right:false,space:false});
- assert.equal(physics.targetPasses,1);assert.equal(physics.score,1100);assert.notEqual(physics.targets.poses[0].slot,slot.slot_id);
+ assert.equal(physics.targetPasses,1);assert.equal(physics.score,1200);assert.notEqual(physics.targets.poses[0].slot,slot.slot_id);
 });

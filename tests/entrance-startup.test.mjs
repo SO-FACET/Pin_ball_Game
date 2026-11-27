@@ -6,6 +6,7 @@ import {fragment,withEntrancePresentation} from '../scripts/entrance-presentatio
 import {downloadModel} from '../entrance-source/download-model.mjs';
 import {createAssemblyClock} from '../entrance-source/assembly-clock.mjs';
 import {createJourneyScrollMap} from '../entrance-source/journey-scroll.mjs';
+import {classifyLoadFailure} from '../shared/load-performance.js';
 const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 
 test('the 3D entrance shares copy, navigation and reveal without a video or a start button',()=>{
@@ -72,7 +73,7 @@ const startup=source.slice(source.lastIndexOf('\ntry{')).replace("import('./jour
 const opening=source.slice(source.indexOf('function startScene(){'),source.indexOf('function gameVisibility('));
 function deferred(){let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no});return{promise,resolve,reject}}
 async function startupFixture({reduced=false,reveal=Promise.resolve()}={}){
- const model=deferred(),nodes=new Map(),rendered=[],assemblyRendered=[],copyFrames=[],errors=[];let removed=0,disposed=0,aborted=0,handoffs=0,redirect,prepared=0,rendererError;
+ const model=deferred(),nodes=new Map(),rendered=[],assemblyRendered=[],copyFrames=[],errors=[],loads=[];let removed=0,disposed=0,aborted=0,handoffs=0,redirect,prepared=0,rendererError;
  const element=()=>({hidden:true,dataset:{},removeAttribute(){},setAttribute(){},load(){},remove(){removed++}});
  const renderer={loadVariant:()=>model.promise,resize(){},renderAt(frame){rendered.push(frame)},renderAssemblyAt(frame){assemblyRendered.push(frame)},dispose(){disposed++}};
  const context={console:{error(){}},captureError:(error,context)=>errors.push({error,context}),URLSearchParams,Promise,parameters:new URLSearchParams(),videoEntrance:false,performanceMode:true,showFPS:false,stage:{},renderView:{},placement:{width:1920,height:1080},devicePixelRatio:1,
@@ -81,7 +82,7 @@ async function startupFixture({reduced=false,reveal=Promise.resolve()}={}){
   gameRequested:false,startupFailed:false,ready:false,firstFrame:334,assembly:createAssemblyClock({reducedMotion:reduced}),
   gameLoader:{},enterGame(){handoffs++;context.gameRequested=true},location:{replace(url){redirect=url}},
   history:{state:null},window:{scrollTo(){}},
-  presentationReady:reveal,modelDownload:model.promise,
+  presentationReady:reveal,modelDownload:model.promise,entranceLoad:{finish:(outcome,properties)=>loads.push({outcome,properties})},classifyLoadFailure,
   loadMainPresentation:async()=>{},createLandingCopy:async()=>frame=>copyFrames.push(frame),placeStage(){},syncScroll(){},requestTick(){},setStartupStatus(){},finishStartupStatus(){},setTimeout(){},
   completePreparation(){prepared++},cancelStartup(){aborted++},journey:undefined,rendererModuleFixture:{createJourneyRenderer:async options=>{rendererError=options.onError;return renderer}},
   reduced:{matches:reduced},siteSound:{setActive(){}},performancePanel:{record(){}},
@@ -89,13 +90,14 @@ async function startupFixture({reduced=false,reveal=Promise.resolve()}={}){
  vm.createContext(context);vm.runInContext(opening,context);
  const done=vm.runInContext('(async()=>{'+startup+'})()',context);
  await new Promise(resolve=>setImmediate(resolve));
- return{context,model,done,rendered,assemblyRendered,copyFrames,errors,failRenderer:error=>rendererError(error),get prepared(){return prepared},get disposed(){return disposed},get aborted(){return aborted},get removed(){return removed},get handoffs(){return handoffs},get redirect(){return redirect}};
+ return{context,model,done,rendered,assemblyRendered,copyFrames,errors,loads,failRenderer:error=>rendererError(error),get prepared(){return prepared},get disposed(){return disposed},get aborted(){return aborted},get removed(){return removed},get handoffs(){return handoffs},get redirect(){return redirect}};
 }
 
 test('3D assembly starts only after GPU preparation with the original first pose',async()=>{
  const view=await startupFixture();assert.equal(view.context.ready,false);assert.equal(view.assemblyRendered.length,0);assert.equal(view.prepared,0);
  view.model.resolve();await view.done;
  assert.equal(view.context.ready,true);assert.equal(view.context.phase,'assembly');assert.equal(view.removed,1);
+ assert.equal(view.loads.at(-1).outcome,'ready');
  assert.deepEqual(view.assemblyRendered,[1]);assert.equal(view.context.frame,334);assert.equal(view.prepared,1);assert.equal(view.context.$('journey-preparation').hidden,true);
 });
 
@@ -156,6 +158,7 @@ test('a real scene failure automatically opens the game without another user act
  assert.equal(view.handoffs,1);assert.equal(view.redirect,undefined);assert.equal(view.disposed,1);
  assert.equal(view.context.gameRequested,true);
  assert.equal(view.errors.length,1);assert.equal(view.errors[0].context.source,'entrance_startup');assert.equal(view.errors[0].error.message,'Network disconnected');
+ assert.equal(view.loads.at(-1).outcome,'failed');assert.equal(view.loads.at(-1).properties.failure_code,'asset');
 });
 
 test('a renderer recovery reports the same error through the sanitized analytics facade and still opens the game',async()=>{
