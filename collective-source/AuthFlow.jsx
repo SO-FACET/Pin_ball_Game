@@ -31,6 +31,7 @@ export function SavedConfirmation({saved,status='',onReplay}) {
       {saved?.pointsSaved&&<button type="button" data-analytics-control="open_score_share" aria-haspopup="dialog" onClick={()=>shareDialog.current.showModal()}>SHARE POINTS</button>}
       <button type="button" data-analytics-control={saved?.pointsSaved?"saved_replay":"saved_play"} onClick={onReplay??(()=>window.top.location.assign('/game'))}>PLAY AGAIN</button>
       <button type="button" data-analytics-control="saved_about" onClick={()=>window.top.location.assign('/about')}>ABOUT&nbsp;SO/ FACET</button>
+      <button type="button" data-analytics-control="saved_exit" aria-label="Exit to Launching Soon" onClick={()=>window.top.location.assign(accountNavigationHref('/notify'))}>EXIT</button>
     </div>
     {saved?.pointsSaved&&<ShareScoreDialog score={saved.savedPoints} dialogRef={shareDialog} sharePoints/>}
   </section>);

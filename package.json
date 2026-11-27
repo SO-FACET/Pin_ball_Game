@@ -11,6 +11,7 @@
     "test:membership": "node --test tests/membership.test.mjs",
     "test:rewards": "node --test tests/membership.test.mjs tests/rewards-integration.test.mjs",
     "smoke:membership": "node scripts/browser-membership-smoke.mjs",
+    "smoke:saved-exit": "node scripts/browser-saved-exit.mjs",
     "test:frontend": "node --test tests/frontend.test.mjs",
     "test:leaderboard": "node --test tests/leaderboard.test.mjs",
     "build:faq": "node scripts/build-faq.mjs",

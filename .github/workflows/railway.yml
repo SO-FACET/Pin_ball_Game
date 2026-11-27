@@ -160,6 +160,11 @@ jobs:
           SOFACET_BROWSER: ${{ matrix.browser }}
           SOFACET_ANALYTICS_GAME_MODE: ${{ matrix.analytics_mode }}
         run: node scripts/browser-analytics.mjs
+      - name: Check saved-coins Exit button and zero-balance confirmation
+        env:
+          SOFACET_PLAYWRIGHT_PATH: ${{ runner.temp }}/browser-check/node_modules/playwright
+          SOFACET_BROWSER: ${{ matrix.browser }}
+        run: npm run smoke:saved-exit
       - name: Upload connection selection report
         if: always()
         uses: actions/upload-artifact@v4
