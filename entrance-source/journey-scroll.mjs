@@ -6,10 +6,10 @@ export function integratedRamp(frame,center,halfWidth=80){
   if(x>=width)return x-halfWidth;
   const t=x/width;return width*(t*t*t-.5*t*t*t*t);
 }
-// Keep the opening and short approaches direct. The rooms and final approach
-// use 2/3 of their former scroll distance, with smooth speed changes at the joins.
-export function createJourneyScrollMap(firstFrame=JOURNEY_START_FRAME,lastFrame=2164,scrollSpeed=1) {
-  const distance=frame=>(4/scrollSpeed)*(frame+(integratedRamp(frame,780)-integratedRamp(frame,1560)+integratedRamp(frame,2000))/3);
+// Restore the original room and final-approach distances while retaining
+// smooth joins, reversible scrolling and whole-pixel browser normalization.
+export function createJourneyScrollMap(firstFrame=JOURNEY_START_FRAME,lastFrame=2164) {
+  const distance=frame=>4*(frame+integratedRamp(frame,780)-integratedRamp(frame,1560)+integratedRamp(frame,2000));
   const start=distance(firstFrame),rawTravel=distance(lastFrame)-start,travel=Math.round(rawTravel);
   // Safari rounds scroll positions to whole pixels. Normalize both directions
   // to that range so scrolling to the bottom reaches the exact handoff frame.
