@@ -81,11 +81,12 @@ export async function loadEntranceMedia(fetcher=fetch,{option=selectEntranceOpti
     const selected={manifest:higherQuality,clips,selectionReason:candidate.width===width?preference.reason:'cdn-fallback'};
     if(higherQuality.width===3840&&preferCached&&cacheStorage)try{
       const cache=await cacheStorage.open('sofacet-entrance-preloaded-v1');
+      const filesFor=media=>[media.clips.opening,...(media.clips.journey.segments||[media.clips.journey])];
       const complete=async media=>{
-        const files=[media.clips.opening,...(media.clips.journey.segments||[media.clips.journey])];
-        return (await Promise.all(files.map(async file=>Number((await cache.match(file.url))?.headers.get('Content-Length'))===file.bytes))).every(Boolean);
+        return (await Promise.all(filesFor(media).map(async file=>Number((await cache.match(file.url))?.headers.get('Content-Length'))===file.bytes))).every(Boolean);
       };
-      if((await cache.keys()).length&&!await complete(selected)){
+      const preferred=new Set(filesFor(selected).map(file=>file.url)),keys=await cache.keys();
+      if(keys.some(key=>!preferred.has(typeof key==='string'?key:key.url))&&!await complete(selected)){
         const hd=await loadEntranceMedia(fetcher,{option:'2',navigator,signal,cacheStorage:null,preferCached:false});
         if(await complete(hd))return {...hd,selectionReason:'cached-hd'};
       }

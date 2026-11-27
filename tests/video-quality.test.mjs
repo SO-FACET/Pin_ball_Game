@@ -82,3 +82,11 @@ test('empty or unavailable cache storage does not change the cold selection or f
   assert.equal(media.manifest.width,3840);assert.equal(calls.some(url=>String(url).includes('/hd/')),false);
  }
 });
+test('a partial preferred-4K cache does not probe an HD manifest that cannot be cached',async()=>{
+ const stored=storedVideo(['4k']);
+ const cache=await stored.open();const keys=await cache.keys();cache.keys=async()=>keys.slice(0,1);
+ const match=cache.match;cache.match=async url=>url===keys[0]?match(url):undefined;
+ const {fetcher,calls}=deliveryFixture();
+ const media=await loadEntranceMedia(fetcher,{navigator:{},cacheStorage:{open:async()=>cache},preferCached:true});
+ assert.equal(media.manifest.width,3840);assert.equal(calls.some(url=>String(url).includes('/hd/')),false);
+});
