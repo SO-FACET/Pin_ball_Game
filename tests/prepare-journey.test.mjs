@@ -42,3 +42,10 @@ test('leaving for the game cancels an in-progress decoder and does not start HD'
  await new Promise(resolve=>setImmediate(resolve));controller.abort(new DOMException('Game chosen','AbortError'));
  await assert.rejects(loading,{name:'AbortError'});assert.equal(created,1);assert.equal(disposed,1);
 });
+
+test('the active renderer is published while downloading so progress and quality remain observable',async()=>{
+ let complete,published;const renderer={loadVariant:()=>new Promise(resolve=>{complete=resolve}),dispose(){}};
+ const loading=prepareJourney({create:async()=>renderer,onCreated:value=>{published=value}});
+ await new Promise(resolve=>setImmediate(resolve));assert.equal(published,renderer);
+ complete();assert.equal(await loading,renderer);
+});

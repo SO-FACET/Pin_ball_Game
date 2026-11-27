@@ -141,6 +141,7 @@ function showEntranceFailure(error,{report=true}={}){
 }
 async function createSceneRenderer({nativeOnly=false,at=firstFrame}={}){
   return prepareJourney({create:options=>renderModule.createJourneyRenderer(options),video:videoEntrance,nativeOnly,signal:sceneLifetime.signal,
+    onCreated:renderer=>{journey=renderer},
     load:renderer=>renderer.loadVariant('compact',{download:modelDownload}),
     prepare:async renderer=>{await presentationLoaded;await prepareScene(renderer,{at})},
     options:{stage,profile:parameters.has('profile'),diagnostics:showFPS,performanceMode,skipOpening:backgroundPreparation,
@@ -152,7 +153,7 @@ async function createSceneRenderer({nativeOnly=false,at=firstFrame}={}){
         if(videoEntrance){presentedFrame=drawnFrame;finalFramePresentedAt=Infinity;placeStage();if(ready&&phase!=='assembly')presentJourneyFrame(drawnFrame)}
         frameRate?.record();
       },onError:error=>{void recoverRenderer(error)}},
-    onRetry:()=>{nativeFallbackUsed=true;},
+    onRetry:renderer=>{nativeFallbackUsed=true;if(journey===renderer)journey=null;},
   });
 }
 async function recoverRenderer(error){
