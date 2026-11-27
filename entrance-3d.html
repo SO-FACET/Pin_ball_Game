@@ -768,7 +768,12 @@ body[data-game-loading] .menu-panel:not([data-open]){visibility:hidden;pointer-e
   <main id="entrance" aria-label="Explore the SO/ FACET world">
     <div id="scene-viewport">
       <div id="scene-frame" aria-hidden="true"></div>
-      <img id="scene-poster" src="/assets/opening-poster-optimized.webp" width="1920" height="1080" fetchpriority="high" alt="" aria-hidden="true">
+      <!-- Match the real 3D opening at frame 334 before the first touch. -->
+      <picture>
+        <source media="(max-width:600px) and (orientation:portrait)" srcset="/assets/entrance-opening-mobile-7da3da433bda.webp">
+        <source media="(orientation:portrait)" srcset="/assets/entrance-opening-tablet-117bedb8b677.webp">
+        <img id="scene-poster" src="/assets/entrance-opening-desktop-e2b8c612a377.webp" width="1920" height="1080" fetchpriority="high" alt="" aria-hidden="true">
+      </picture>
     </div>
     <div id="story-copy" role="region" aria-label="The SO/ FACET story">
       <section class="story-line story-opening" data-from="51" data-until="241" aria-hidden="false">
