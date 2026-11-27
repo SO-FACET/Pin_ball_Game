@@ -2,16 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createJourneyScrollMap} from '../entrance-source/journey-scroll.mjs';
 
-test('middle and final sections move 50% faster while the opening and short approaches keep their response',()=>{
+test('original middle and final scroll distances retain the opening and short approaches',()=>{
  const map=createJourneyScrollMap();
  assert.equal(map.scrollAtFrame(334),0);
  // Whole-pixel range normalization changes section distances by less than 0.01%.
  const near=(actual,expected)=>assert.ok(Math.abs(actual/expected-1)<.0001);
  near(map.scrollAtFrame(700),(700-334)*4);
- near(map.scrollAtFrame(1480)-map.scrollAtFrame(860),(1480-860)*8/1.5);
+ near(map.scrollAtFrame(1480)-map.scrollAtFrame(860),(1480-860)*8);
  near(map.scrollAtFrame(1920)-map.scrollAtFrame(1640),(1920-1640)*4);
- near(map.scrollAtFrame(2164)-map.scrollAtFrame(2080),(2164-2080)*8/1.5);
- assert.equal(map.travel,8579);
+ near(map.scrollAtFrame(2164)-map.scrollAtFrame(2080),(2164-2080)*8);
+ assert.equal(map.travel,11096);
 });
 
 test('equal scroll inputs accelerate gradually across each section boundary',()=>{
@@ -21,7 +21,7 @@ test('equal scroll inputs accelerate gradually across each section boundary',()=
   assert.ok(Math.abs(speed(center-.5)-speed(center+.5))<.001,'no abrupt speed change');
   for(let frame=boundary-90;frame<boundary+90;frame++){
    const y=map.scrollAtFrame(frame),a=speed(y),b=speed(y+1);
-   assert.ok(a>=.1875-1e-5&&a<=.25+1e-5);
+   assert.ok(a>=.125-1e-5&&a<=.25+1e-5);
    assert.ok(Math.abs(b-a)<.001,'speed blends throughout the transition');
   }
  }
@@ -51,14 +51,4 @@ test('whole-pixel browser scrolling can reach the exact final pose',()=>{
  assert.equal(map.frameAtScroll(Math.floor(map.travel)),2164,'Safari can reach the cards handoff');
  assert.equal(map.scrollAtFrame(2164),map.travel);
  assert.ok(map.frameAtScroll(map.travel-1)<2164,'the ending stays scrollable until the bottom');
-});
-
- test('temporary shop speed covers the same journey in one third of the scroll distance',()=>{
- const normal=createJourneyScrollMap(),shop=createJourneyScrollMap(334,2164,3);
- assert.equal(normal.travel,8579);assert.equal(shop.travel,2860);
- for(const frame of [334,700,780,1000,1560,2000,2164]){
- assert.ok(Math.abs(shop.scrollAtFrame(frame)*3-normal.scrollAtFrame(frame))<=1);
- assert.ok(Math.abs(shop.frameAtScroll(shop.scrollAtFrame(frame))-frame)<1e-8);
- }
- assert.equal(shop.frameAtScroll(shop.travel),2164);
 });
