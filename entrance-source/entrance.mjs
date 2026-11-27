@@ -96,16 +96,20 @@ function placeStage(){
   const transform=visibleArea?'none':`translate3d(${placement.x}px,${placement.y}px,0)`;
   if(stage.style.transform!==transform)stage.style.transform=transform;
 }
-function startScene({scroll=history.state?.sofacetWorldScroll||0}={}){
+function startScene({scroll=history.state?.sofacetWorldScroll||0,glide=false}={}){
   if(gameRequested||startupFailed)return;
   $('journey-preparation').hidden=true;
   finishStartupStatus();
-  $('scene-loading-status').setAttribute('data-ready','');
-  setTimeout(()=>{$('scene-loading-status').hidden=true},1500);
+  if(backgroundPreparation)$('scene-loading-status').hidden=true;
+  else{
+    $('scene-loading-status').setAttribute('data-ready','');
+    setTimeout(()=>{$('scene-loading-status').hidden=true},1500);
+  }
   phase=assembly.active?'assembly':'idle';document.body.dataset.phase=phase;ready=true;
   entranceLoad.finish('ready');
   if(history.state?.sofacetGame){enterGame();return;}
-  window.scrollTo(0,scroll);
+  if(glide)window.scrollTo({top:scroll,behavior:reduced.matches?'instant':'smooth'});
+  else window.scrollTo(0,scroll);
   siteSound.setActive(true);syncScroll();requestTick();
 }
 async function prepareScene(renderer=journey,{at=firstFrame,hold=backgroundPreparation&&!activated}={}){
@@ -122,8 +126,9 @@ export function activateEntrance({scroll=0}={}){
   if(startupFailed)throw Error('The journey is unavailable');
   if(activated||ready)return;
   activated=true;document.body.removeAttribute('data-awaiting-explore');
+  document.body.setAttribute('data-journey-started','');
   document.body.setAttribute('data-cinematic-visible','');$('site-loader')?.remove();
-  startScene({scroll:Math.min(Math.max(0,scroll),innerHeight*.8)});
+  startScene({scroll:Math.min(Math.max(0,scroll),innerHeight*.8),glide:true});
   scheduleAnimatedCopy();
 }
 function showEntranceFailure(error,{report=true}={}){
@@ -232,7 +237,10 @@ game.addEventListener('load',()=>{
   gameReadyObserver=new MutationObserver(check);
   gameReadyObserver.observe(gameStage,{attributes:true,attributeFilter:['data-ready','aria-busy']});check();
 });
-$('scroll-hint').addEventListener('click',()=>{siteSound.unlock();window.scrollTo({top:window.scrollY+innerHeight*.8,behavior:reduced.matches?'instant':'smooth'});});
+$('scroll-hint').addEventListener('click',()=>{
+  siteSound.unlock();
+  if(ready)window.scrollTo({top:window.scrollY+innerHeight*.8,behavior:reduced.matches?'instant':'smooth'});
+});
 
 function tick(now){
   raf=0;if(gameRequested||document.hidden)return;
@@ -272,6 +280,7 @@ function presentJourneyFrame(at){
   const scrolledFrame=videoEntrance?at:target;
   updateCopy.setScrolled(journeyScroll.scrollAtFrame(scrolledFrame));updateCopy(storyFrameAt(at));
   document.body.toggleAttribute('data-scrolled',scrolledFrame>firstFrame+8);
+  if(backgroundPreparation)document.body.toggleAttribute('data-opening-cue-passed',scrolledFrame>=firstFrame+260);
   $('progress').style.transform=`scaleX(${(at-firstFrame)/(lastFrame-firstFrame)})`;
   siteSound.frame(at);
 }
