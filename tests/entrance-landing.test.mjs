@@ -18,7 +18,8 @@ function fixture({url='https://sofacet.com/',state=null,decode=Promise.resolve()
  const location=new URL(url);location.assign=path=>redirects.push(path);location.reload=()=>redirects.push('reload');
  const activateEntrance=options=>{activations++;scroll=options.scroll;attributes.delete('data-awaiting-explore')};
  const window=Object.assign(new EventTarget(),{document,location,CustomEvent,performance:{now:()=>now},loadScene(){imports++;return load?load({activateEntrance}):Promise.resolve({activateEntrance})},setTimeout(callback,delay){const id=++serial;timers.set(id,{callback,delay});return id},clearTimeout:id=>timers.delete(id)});
- const context={window,document,location,history:{state},performance:window.performance,URLSearchParams,createLoadTracker,requestAnimationFrame:fn=>fn(now),setTimeout:window.setTimeout,clearTimeout:window.clearTimeout,innerHeight:844};
+ const history={state,replaceState(value){this.state=value}};
+ const context={window,document,location,history,performance:window.performance,URLSearchParams,createLoadTracker,requestAnimationFrame:fn=>fn(now),setTimeout:window.setTimeout,clearTimeout:window.clearTimeout,innerHeight:844};
  vm.runInNewContext(source,context);
  return {window,context,main,attributes,redirects,retry,label,button,get imports(){return imports},get activations(){return activations},get scroll(){return scroll},advance:time=>{now=time},idle(){for(const [id,timer]of timers)if(timer.delay===1200){timers.delete(id);timer.callback()}},click:()=>button.dispatchEvent(new Event('click'))};
 }
@@ -38,6 +39,7 @@ test('touching a prepared scene activates it once without a blocking logo',async
  const f=fixture();await turn();f.idle();await turn();f.advance(5000);
  f.window.dispatchEvent(new Event('pointerdown'));f.window.dispatchEvent(new Event('touchstart'));await f.context.startExperience();
  assert.equal(f.imports,1);assert.equal(f.activations,1);assert.equal(f.main.inert,false);
+ assert.equal(f.scroll,540,'A tap must advance the movie without a second gesture');
  assert.equal(f.attributes.has('data-loading'),false);assert.equal(f.attributes.has('data-awaiting-explore'),false);
  assert.equal(f.window.__sofacetExperienceStart,100,'Cinematic timing begins with background preparation');
 });
@@ -52,7 +54,7 @@ test('a gesture during download keeps the opening visible and retains a bounded 
 });
 
 test('the visible scroll hint enters the first scene instead of requiring a separate Explore action',async()=>{
- const f=fixture();await turn();f.click();await f.context.startExperience();assert.equal(f.activations,1);assert.equal(f.scroll,844*.8);
+ const f=fixture();await turn();f.click();await f.context.startExperience();assert.equal(f.activations,1);assert.equal(f.scroll,540);
 });
 
 test('cookie/navigation controls and unrelated keys do not activate a prepared movie',async()=>{
@@ -84,9 +86,12 @@ test('a cinematic module failure offers retry and never redirects to the game',a
  const f=fixture({load:()=>Promise.reject(Error('Module unavailable'))});f.click();await f.context.startExperience();
  assert.deepEqual(f.redirects,[]);assert.equal(f.retry.hidden,false);assert.equal(f.attributes.has('data-entrance-error'),true);assert.match(f.label.textContent,/try again/);assert.equal(f.main.inert,false);
  f.retry.dispatchEvent(new Event('click'));assert.deepEqual(f.redirects,['reload']);
+ const retried=fixture({state:f.context.history.state});await turn();
+ assert.equal(retried.activations,1,'Retry should enter the scene when loading finishes');
+ assert.equal(retried.scroll,540);assert.deepEqual(Object.keys(retried.context.history.state),[]);
 });
 
 test('swiping over the scroll cue activates the movie instead of treating it as navigation',async()=>{
  const f=fixture();await turn();const swipe=new Event('wheel');swipe.deltaY=120;Object.defineProperty(swipe,'target',{value:{closest:()=>f.button}});
- f.window.dispatchEvent(swipe);await f.context.startExperience();assert.equal(f.activations,1);assert.equal(f.scroll,120);
+ f.window.dispatchEvent(swipe);await f.context.startExperience();assert.equal(f.activations,1);assert.equal(f.scroll,540);
 });

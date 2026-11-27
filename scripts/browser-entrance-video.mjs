@@ -35,16 +35,22 @@ try{
     assert.equal(await firstTouchPage.locator('#scroll-hint').isVisible(),true,'The opening must show its scroll cue');
     if(!firstTouchRequests.some(url=>firstTouchMedia.test(url)))await firstTouchPage.waitForRequest(firstTouchMedia);
     assert.equal(firstTouchRequests.some(url=>firstTouchMedia.test(url)),true,'The movie starts downloading before interaction');
-    await firstTouchPage.mouse.move(180,300);
-    await firstTouchPage.mouse.wheel(0,700);
+    if(engine==='webkit')await firstTouchPage.locator('#scroll-hint').tap();
+    else{
+      await firstTouchPage.mouse.move(180,300);
+      await firstTouchPage.mouse.wheel(0,700);
+    }
     await firstTouchPage.waitForFunction(()=>document.body.hasAttribute('data-interaction-pending'));
+    assert.match(await firstTouchPage.locator('#scene-loading-status').innerText(),/Loading the journey/);
     assert.equal(await firstTouchPage.locator('#site-loader').isVisible(),false,'Keep the opening instead of replaying the logo');
     assert.equal(await firstTouchPage.locator('#game-page').getAttribute('src'),null);
     releaseFirstTouch();
-    await firstTouchPage.waitForFunction(()=>window.entrancePreview?.ready&&window.entrancePreview.displayedFrame>334,null,{timeout:180000});
+    await firstTouchPage.waitForFunction(()=>window.entrancePreview?.ready&&window.entrancePreview.displayedFrame>=430,null,{timeout:180000});
+    assert.match(await firstTouchPage.locator('#scroll-hint').innerText(),/Keep swiping up/);
+    assert.equal(await firstTouchPage.locator('#scene-loading-status').isVisible(),false);
     assert.equal(new URL(firstTouchPage.url()).pathname,'/');
     assert.equal(await firstTouchPage.locator('#game-page').getAttribute('src'),null);
-    await writeFile(new URL(`${engine}-first-touch.json`,output),JSON.stringify({engine,passed:true,backgroundBeforeTouch:true,scrollHintVisible:true,firstSwipeStaysInMovie:true}));
+    await writeFile(new URL(`${engine}-first-touch.json`,output),JSON.stringify({engine,passed:true,backgroundBeforeTouch:true,visibleLoadingFeedback:true,firstGestureMovesTheMovie:true,continuationCue:true}));
   }finally{releaseFirstTouch();await firstTouchContext.close();}
   const failureContext=await browser.newContext({...devices[engine==='webkit'?'iPhone 13':'Pixel 7'],reducedMotion:'reduce'});
   const failurePage=await failureContext.newPage();
@@ -56,13 +62,10 @@ try{
     await failurePage.locator('#journey-retry').waitFor({state:'visible',timeout:30000});
     assert.equal(new URL(failurePage.url()).pathname,'/','A failed movie must never redirect to the game');
     assert.equal(await failurePage.locator('#game-page').getAttribute('src'),null);
-    assert.equal(await failurePage.locator('#scroll-hint').isVisible(),true);
+    assert.equal(await failurePage.locator('#scroll-hint').isVisible(),false,'Only Retry should invite action after a failure');
     await failurePage.unroute(firstTouchMedia);
     await failurePage.locator('#journey-retry').click();
-    await failurePage.waitForFunction(()=>document.body.hasAttribute('data-cinematic-prepared'),null,{timeout:180000});
-    assert.equal(await failurePage.locator('body').getAttribute('data-awaiting-explore'),'');
-    await failurePage.locator('#scroll-hint').click();
-    await failurePage.waitForFunction(()=>window.entrancePreview?.ready&&window.entrancePreview.displayedFrame>334,null,{timeout:30000});
+    await failurePage.waitForFunction(()=>window.entrancePreview?.ready&&window.entrancePreview.displayedFrame>=430,null,{timeout:180000});
     assert.equal(new URL(failurePage.url()).pathname,'/');
     await writeFile(new URL(`${engine}-failed-journey.json`,output),JSON.stringify({engine,passed:true,failureStaysOnOpening:true,retryLoadsMovie:true}));
   }finally{await failureContext.close();}

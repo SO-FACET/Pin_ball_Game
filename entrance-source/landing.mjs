@@ -2,7 +2,9 @@ import {createLoadTracker} from '../shared/load-performance.js';
 
 const parameters=new URLSearchParams(location.search);
 const automatic=['entrance','quality','debug','debug/1','perf','profile'].some(key=>parameters.has(key))||location.hash==='#experience'||history.state?.sofacetGame||Number(history.state?.sofacetWorldScroll)>0;
+const resumeAfterRetry=!automatic&&history.state?.sofacetRetryJourney;
 let preparing,starting,landingLoad,stopListening=()=>{},pendingScroll=0,idleTimer;
+const firstStep=()=>Math.round(innerHeight*.64);
 function showFailure(){
  document.body.removeAttribute('data-interaction-pending');document.body.setAttribute('data-entrance-error','');
  document.body.setAttribute('data-awaiting-explore','');
@@ -27,12 +29,15 @@ export function startExperience(){
   landingLoad?.finish('cancelled');document.body.setAttribute('data-interaction-pending','');
   try{
    const entrance=await prepareExperience();
-   await entrance.activateEntrance({scroll:pendingScroll});
+   await entrance.activateEntrance({scroll:Math.max(pendingScroll,firstStep())});
    document.body.removeAttribute('data-interaction-pending');stopListening();
   }catch{starting=undefined;showFailure()}
  })();
 }
-document.getElementById('journey-retry')?.addEventListener('click',()=>location.reload());
+document.getElementById('journey-retry')?.addEventListener('click',()=>{
+ if(!automatic)history.replaceState({...history.state,sofacetRetryJourney:true},'');
+ location.reload();
+});
 if(automatic)void startExperience();
 else{
  landingLoad=createLoadTracker(window,{stage:'entrance',fromNavigation:true,metrics:()=>({renderer:'poster'})});
@@ -46,6 +51,7 @@ else{
  const button=document.getElementById('scroll-hint'),types=['pointerdown','touchstart','touchmove','wheel','keydown'];
  let touchY;
  const begin=event=>{
+  if(document.body.hasAttribute('data-entrance-error'))return;
   if(event.defaultPrevented||event.ctrlKey||event.metaKey||event.altKey)return;
   if(event.type==='pointerdown'&&event.button!==undefined&&event.button!==0)return;
   if(event.type==='keydown'&&!['Enter',' ','ArrowDown','PageDown'].includes(event.key))return;
@@ -53,14 +59,22 @@ else{
   const control=event.target?.closest?.('a,button,input,select,textarea,summary,dialog,[role="button"],#sf-cookie-root');
   if(control&&control!==button)return;
   if(event.type==='touchstart')touchY=event.touches?.[0]?.clientY;
-  const amount=event.type==='wheel'?event.deltaY:event.type==='touchmove'?touchY-event.touches?.[0]?.clientY:event.type==='keydown'?innerHeight*.8:0;
+  // Leave taps and keyboard clicks on the cue to its button handler. Swiping
+  // over the cue still works, like swiping over any other part of the scene.
+  if(control===button&&(event.type==='pointerdown'||event.type==='touchstart'||
+    (event.type==='keydown'&&['Enter',' '].includes(event.key))))return;
+  const amount=event.type==='wheel'?event.deltaY:event.type==='touchmove'?touchY-event.touches?.[0]?.clientY:0;
   if(event.type==='touchmove')touchY=event.touches?.[0]?.clientY;
   if(amount>0)pendingScroll=Math.min(innerHeight*.8,pendingScroll+amount);
   void startExperience();
  };
- const fallback=()=>{pendingScroll=innerHeight*.8;void startExperience()};
+ const fallback=()=>{if(!document.body.hasAttribute('data-entrance-error'))void startExperience()};
  const resume=()=>{if(!document.hidden&&!preparing)void prepareExperience().catch(()=>{})};
  for(const type of types)window.addEventListener(type,begin,{passive:true});
  document.addEventListener('visibilitychange',resume);button.addEventListener('click',fallback);
  stopListening=()=>{for(const type of types)window.removeEventListener(type,begin);document.removeEventListener('visibilitychange',resume);button.removeEventListener('click',fallback)};
+ if(resumeAfterRetry){
+  const state={...history.state};delete state.sofacetRetryJourney;history.replaceState(state,'');
+  void startExperience();
+ }
 }

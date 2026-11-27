@@ -6,8 +6,10 @@ import {selectEntranceOption} from './entrance-option.mjs';
 const controller = new AbortController();
 export const backgroundPreparation=document.body.hasAttribute('data-awaiting-explore');
 let lastProgress;
-const loadingCopy=createLoadingCopy(message=>{for(const status of document.querySelectorAll('[data-scene-status]'))setBrandText(status,message)});
-export const finishStartupStatus=()=>loadingCopy.ready();
+const loadingCopy=backgroundPreparation?null:createLoadingCopy(message=>{
+  for(const status of document.querySelectorAll('[data-scene-status]'))setBrandText(status,message);
+});
+export const finishStartupStatus=()=>loadingCopy?.ready();
 export function setStartupStatus(message, progress = null) {
   if (progress === lastProgress) return;
   lastProgress = progress;
@@ -32,5 +34,5 @@ export const modelDownload = videoEntrance ? Promise.resolve(null) : downloadMod
 });
 // The renderer can attach later, after its own module has downloaded.
 modelDownload.catch(() => {});
-export function cancelStartup() { completePreparation();loadingCopy.cancel(); controller.abort(); }
-addEventListener('pagehide',event=>{if(!event.persisted)loadingCopy.cancel()});
+export function cancelStartup() { completePreparation();loadingCopy?.cancel(); controller.abort(); }
+addEventListener('pagehide',event=>{if(!event.persisted)loadingCopy?.cancel()});
