@@ -1,13 +1,15 @@
-import {finishLoading} from '../assets/loading/intro.js';
 import {downloadModel} from './download-model.mjs';
 import {createLoadingCopy} from './loading-copy.mjs';
 import {setBrandText} from '../shared/brand-text.ts';
 import {selectEntranceOption} from './entrance-option.mjs';
 
 const controller = new AbortController();
+export const backgroundPreparation=document.body.hasAttribute('data-awaiting-explore');
 let lastProgress;
-const loadingCopy=createLoadingCopy(message=>{for(const status of document.querySelectorAll('[data-scene-status]'))setBrandText(status,message)});
-export const finishStartupStatus=()=>loadingCopy.ready();
+const loadingCopy=backgroundPreparation?null:createLoadingCopy(message=>{
+  for(const status of document.querySelectorAll('[data-scene-status]'))setBrandText(status,message);
+});
+export const finishStartupStatus=()=>loadingCopy?.ready();
 export function setStartupStatus(message, progress = null) {
   if (progress === lastProgress) return;
   lastProgress = progress;
@@ -24,7 +26,7 @@ export function setStartupStatus(message, progress = null) {
 let releasePreparation;
 const prepared=new Promise(resolve=>{releasePreparation=resolve});
 export const completePreparation=()=>releasePreparation();
-export const presentationReady = finishLoading({ready:prepared});
+export const presentationReady = backgroundPreparation?Promise.resolve():import('../assets/loading/intro.js').then(({finishLoading})=>finishLoading({ready:prepared}));
 export const videoEntrance = selectEntranceOption(location.search)!=='1';
 export const modelDownload = videoEntrance ? Promise.resolve(null) : downloadModel('/assets/entrance-3d/journey-compact.glb', {
   signal: controller.signal,
@@ -32,5 +34,5 @@ export const modelDownload = videoEntrance ? Promise.resolve(null) : downloadMod
 });
 // The renderer can attach later, after its own module has downloaded.
 modelDownload.catch(() => {});
-export function cancelStartup() { completePreparation();loadingCopy.cancel(); controller.abort(); }
-addEventListener('pagehide',event=>{if(!event.persisted)loadingCopy.cancel()});
+export function cancelStartup() { completePreparation();loadingCopy?.cancel(); controller.abort(); }
+addEventListener('pagehide',event=>{if(!event.persisted)loadingCopy?.cancel()});

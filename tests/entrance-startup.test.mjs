@@ -6,6 +6,8 @@ import {fragment,withEntrancePresentation} from '../scripts/entrance-presentatio
 import {downloadModel} from '../entrance-source/download-model.mjs';
 import {createAssemblyClock} from '../entrance-source/assembly-clock.mjs';
 import {createJourneyScrollMap} from '../entrance-source/journey-scroll.mjs';
+import {classifyLoadFailure} from '../shared/load-performance.js';
+import {prepareJourney} from '../entrance-source/prepare-journey.mjs';
 const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 
 test('the 3D entrance shares copy, navigation and reveal without a video or a start button',()=>{
@@ -68,34 +70,37 @@ test('the logo overlay requires real readiness and its existing reveal, with no 
 });
 
 const source=read('entrance-source/entrance.mjs');
-const startup=source.slice(source.lastIndexOf('\ntry{')).replace("import('./journey-renderer.mjs')",'Promise.resolve(rendererModuleFixture)');
-const opening=source.slice(source.indexOf('function startScene(){'),source.indexOf('function gameVisibility('));
+const startup=source.slice(source.lastIndexOf('\ntry{')).replace("import('./journey-renderer.mjs')",'Promise.resolve(rendererModuleFixture)').replace("import('./video-renderer.mjs')",'Promise.resolve(rendererModuleFixture)');
+const opening=source.slice(source.indexOf('function startScene('),source.indexOf('function gameVisibility(')).replace('export function','function');
 function deferred(){let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no});return{promise,resolve,reject}}
-async function startupFixture({reduced=false,reveal=Promise.resolve()}={}){
- const model=deferred(),nodes=new Map(),rendered=[],assemblyRendered=[],copyFrames=[],errors=[];let removed=0,disposed=0,aborted=0,handoffs=0,redirect,prepared=0,rendererError;
- const element=()=>({hidden:true,dataset:{},removeAttribute(){},setAttribute(){},load(){},remove(){removed++}});
+async function startupFixture({reduced=false,reveal=Promise.resolve(),background=false,video=false}={}){
+ const model=deferred(),nodes=new Map(),rendered=[],assemblyRendered=[],copyFrames=[],errors=[],loads=[],created=[];let removed=0,disposed=0,aborted=0,handoffs=0,redirect,prepared=0,rendererError;
+ const attributes=new Set();const label={textContent:''};
+ const element=()=>({hidden:true,dataset:{},querySelector:()=>label,removeAttribute(){},setAttribute(){},load(){},remove(){removed++}});
  const renderer={loadVariant:()=>model.promise,resize(){},renderAt(frame){rendered.push(frame)},renderAssemblyAt(frame){assemblyRendered.push(frame)},dispose(){disposed++}};
- const context={console:{error(){}},captureError:(error,context)=>errors.push({error,context}),URLSearchParams,Promise,parameters:new URLSearchParams(),videoEntrance:false,performanceMode:true,showFPS:false,stage:{},renderView:{},placement:{width:1920,height:1080},devicePixelRatio:1,
+ const context={console:{error(){}},captureError:(error,context)=>errors.push({error,context}),URLSearchParams,Promise,parameters:new URLSearchParams(),videoEntrance:video,performanceMode:true,showFPS:false,stage:{},renderView:{},placement:{width:1920,height:1080},devicePixelRatio:1,
   $:id=>{if(!nodes.has(id))nodes.set(id,element());return nodes.get(id)},
-  document:{body:{dataset:{}}},fetch:async()=>({ok:true,json:async()=>({points:[]})}),
+  document:{body:{dataset:{},setAttribute:key=>attributes.add(key),removeAttribute:key=>attributes.delete(key)}},main:{inert:false,removeAttribute(){}},cancelAnimationFrame(){},raf:0,lastFrame:2164,presentedFrame:334,frameRate:{record(){}},storyFrameAt:frame=>frame,innerHeight:844,journeyScroll:createJourneyScrollMap(),activated:!background,recovering:false,nativeFallbackUsed:false,backgroundPreparation:background,prepareJourney,sceneLifetime:new AbortController(),fetch:async()=>({ok:true,json:async()=>({points:[]})}),
   gameRequested:false,startupFailed:false,ready:false,firstFrame:334,assembly:createAssemblyClock({reducedMotion:reduced}),
-  gameLoader:{},enterGame(){handoffs++;context.gameRequested=true},location:{replace(url){redirect=url}},
+  gameLoader:{},enterGame(){handoffs++;context.gameRequested=true;context.cancelStartup();context.sceneLifetime.abort(new DOMException('Game chosen','AbortError'))},location:{replace(url){redirect=url}},
   history:{state:null},window:{scrollTo(){}},
-  presentationReady:reveal,modelDownload:model.promise,
-  loadMainPresentation:async()=>{},createLandingCopy:async()=>frame=>copyFrames.push(frame),placeStage(){},syncScroll(){},requestTick(){},setStartupStatus(){},finishStartupStatus(){},setTimeout(){},
-  completePreparation(){prepared++},cancelStartup(){aborted++},journey:undefined,rendererModuleFixture:{createJourneyRenderer:async options=>{rendererError=options.onError;return renderer}},
+  presentationReady:reveal,modelDownload:model.promise,entranceLoad:{finish:(outcome,properties)=>loads.push({outcome,properties})},classifyLoadFailure,
+  loadMainPresentation:async()=>{},createLandingCopy:async()=>frame=>copyFrames.push(frame),createStaticLandingCopy:()=>frame=>copyFrames.push(frame),scheduleAnimatedCopy(){},placeStage(){},syncScroll(){},requestTick(){},setStartupStatus(){},finishStartupStatus(){},setTimeout(){},
+  completePreparation(){prepared++},cancelStartup(){aborted++},journey:undefined,rendererModuleFixture:{createJourneyRenderer:async options=>{rendererError=options.onError;created.push(options);return {...renderer}}},
   reduced:{matches:reduced},siteSound:{setActive(){}},performancePanel:{record(){}},
  };
+ if(background)context.assembly.finish();
  vm.createContext(context);vm.runInContext(opening,context);
  const done=vm.runInContext('(async()=>{'+startup+'})()',context);
  await new Promise(resolve=>setImmediate(resolve));
- return{context,model,done,rendered,assemblyRendered,copyFrames,errors,failRenderer:error=>rendererError(error),get prepared(){return prepared},get disposed(){return disposed},get aborted(){return aborted},get removed(){return removed},get handoffs(){return handoffs},get redirect(){return redirect}};
+ return{context,model,done,rendered,assemblyRendered,copyFrames,errors,loads,failRenderer:error=>rendererError(error),get prepared(){return prepared},get disposed(){return disposed},get aborted(){return aborted},get removed(){return removed},get handoffs(){return handoffs},get redirect(){return redirect},attributes,label,created};
 }
 
 test('3D assembly starts only after GPU preparation with the original first pose',async()=>{
  const view=await startupFixture();assert.equal(view.context.ready,false);assert.equal(view.assemblyRendered.length,0);assert.equal(view.prepared,0);
  view.model.resolve();await view.done;
- assert.equal(view.context.ready,true);assert.equal(view.context.phase,'assembly');assert.equal(view.removed,1);
+ assert.equal(view.context.ready,true);assert.equal(view.context.phase,'assembly');assert.equal(view.attributes.has('data-cinematic-visible'),true);
+ assert.equal(view.loads.at(-1).outcome,'ready');
  assert.deepEqual(view.assemblyRendered,[1]);assert.equal(view.context.frame,334);assert.equal(view.prepared,1);assert.equal(view.context.$('journey-preparation').hidden,true);
 });
 
@@ -116,7 +121,7 @@ test('the prepared opening replaces the old poster before the loader fades, with
  const reveal=deferred(),view=await startupFixture({reveal:reveal.promise});view.model.resolve();
  await new Promise(resolve=>setImmediate(resolve));
  assert.equal(view.context.ready,false);assert.equal(view.prepared,1);
- assert.equal(view.removed,1,'the outdated poster must be gone before releasing the loader');
+ assert.equal(view.attributes.has('data-cinematic-visible'),true,'the prepared canvas must replace the still before releasing the loader');
  assert.deepEqual(view.assemblyRendered,[1],'draw the actual opening while the loader is still opaque');
  assert.equal(view.context.assembly.frame,1,'the opening animation must wait for the reveal');
  reveal.resolve();await view.done;assert.deepEqual(view.assemblyRendered,[1]);
@@ -125,7 +130,7 @@ test('the prepared opening replaces the old poster before the loader fades, with
 test('reduced-motion visitors also get their final opening pose before the loader is released',async()=>{
  const reveal=deferred(),view=await startupFixture({reduced:true,reveal:reveal.promise});view.model.resolve();
  await new Promise(resolve=>setImmediate(resolve));
- assert.equal(view.removed,1);assert.deepEqual(view.rendered,[334]);assert.equal(view.context.ready,false);
+ assert.equal(view.attributes.has('data-cinematic-visible'),true);assert.deepEqual(view.rendered,[334]);assert.equal(view.context.ready,false);
  reveal.resolve();await view.done;assert.deepEqual(view.rendered,[334]);
 });
 
@@ -145,33 +150,51 @@ test('a first swipe during assembly can advance directly into the journey',async
 });
 
 test('skipping while a cold model loads releases its renderer without showing a false error',async()=>{
- const view=await startupFixture();view.context.gameRequested=true;
+ const view=await startupFixture();view.context.enterGame();
  view.model.reject(new DOMException('Cancelled','AbortError'));await view.done;
  assert.equal(view.disposed,1);assert.equal(view.aborted,1);assert.equal(view.context.document.body.dataset.error,undefined);
  assert.equal(view.errors.length,0,'Intentional Skip cancellation is not an application exception');
 });
 
-test('a real scene failure automatically opens the game without another user action',async()=>{
- const view=await startupFixture();view.model.reject(Error('Network disconnected'));await view.done;
- assert.equal(view.handoffs,1);assert.equal(view.redirect,undefined);assert.equal(view.disposed,1);
- assert.equal(view.context.gameRequested,true);
- assert.equal(view.errors.length,1);assert.equal(view.errors[0].context.source,'entrance_startup');assert.equal(view.errors[0].error.message,'Network disconnected');
+test('a real scene failure retains the opening and offers retry without a game handoff',async()=>{
+ const view=await startupFixture();view.model.reject(Error('Network disconnected'));await assert.rejects(view.done,/Network disconnected/);
+ assert.equal(view.handoffs,0);assert.equal(view.redirect,undefined);assert.equal(view.disposed,1);assert.equal(view.context.gameRequested,false);
+ assert.equal(view.attributes.has('data-entrance-error'),true);assert.equal(view.context.$('journey-retry').hidden,false);assert.match(view.label.textContent,/try again/);
+ assert.equal(view.errors.length,1);assert.equal(view.errors[0].context.source,'entrance_startup');
+ assert.equal(view.loads.at(-1).outcome,'failed');assert.equal(view.loads.at(-1).properties.failure_code,'asset');
 });
 
-test('a renderer recovery reports the same error through the sanitized analytics facade and still opens the game',async()=>{
+test('an unrecoverable renderer error stays on the entrance and reports through analytics',async()=>{
  const view=await startupFixture();view.model.resolve();await view.done;const error=Error('Renderer unavailable');view.failRenderer(error);
- assert.equal(view.handoffs,1);assert.equal(view.errors.length,1);assert.equal(view.errors[0].error,error);assert.equal(view.errors[0].context.source,'entrance_renderer');
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(view.handoffs,0);assert.equal(view.errors[0].error,error);assert.equal(view.errors[0].context.source,'entrance_renderer');assert.equal(view.attributes.has('data-entrance-error'),true);
 });
 
-test('failure before the shared game loader is available navigates directly to the game',async()=>{
- const view=await startupFixture();view.context.gameLoader=undefined;
- view.model.reject(Error('Presentation unavailable'));await view.done;
- assert.equal(view.redirect,'/game');assert.equal(view.handoffs,0);assert.equal(view.disposed,1);
+test('failure before the game loader is available does not navigate to the game',async()=>{
+ const view=await startupFixture();view.context.gameLoader=undefined;view.model.reject(Error('Presentation unavailable'));await assert.rejects(view.done,/Presentation unavailable/);
+ assert.equal(view.redirect,undefined);assert.equal(view.handoffs,0);assert.equal(view.disposed,1);
 });
 
-test('manual Skip to Game during recovery does not start a second handoff',async()=>{
- const view=await startupFixture(),reveal=deferred();view.context.presentationReady=reveal.promise;
- view.model.reject(Error('Renderer unavailable'));await new Promise(resolve=>setImmediate(resolve));
- view.context.enterGame();reveal.resolve();await view.done;
- assert.equal(view.handoffs,1);assert.equal(view.redirect,undefined);
+test('the default cinematic prepares its first real frame behind the opening until interaction',async()=>{
+ const view=await startupFixture({background:true});view.model.resolve();await view.done;
+ assert.equal(view.context.ready,false);assert.equal(view.attributes.has('data-cinematic-prepared'),true);assert.equal(view.attributes.has('data-cinematic-visible'),false);
+ assert.deepEqual(view.rendered,[334]);assert.equal(view.loads.at(-1).outcome,'ready');
+ view.context.activateEntrance({scroll:300});assert.equal(view.context.ready,true);assert.equal(view.context.phase,'idle');assert.equal(view.attributes.has('data-cinematic-visible'),true);
+});
+
+test('a runtime video failure retries native HD at the last shown frame instead of opening the game',async()=>{
+ const view=await startupFixture({video:true});view.model.resolve();await view.done;
+ view.context.presentedFrame=550;view.failRenderer(Error('Video seek failed'));
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(view.created.length,2);assert.equal(view.created[1].option,'2');assert.equal(view.created[1].forceNative,true);
+ assert.equal(view.disposed,1);assert.equal(view.handoffs,0);assert.equal(view.context.ready,true);assert.equal(view.context.frame,550);
+ view.failRenderer(Error('HD unavailable'));await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(view.created.length,2);assert.equal(view.handoffs,0);assert.equal(view.context.$('journey-retry').hidden,false);
+});
+
+test('choosing the game during native recovery cancels preparation without an entrance error',async()=>{
+ const view=await startupFixture({video:true});view.model.resolve();await view.done;
+ view.failRenderer(Error('Video failed'));view.context.enterGame();
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(view.handoffs,1);assert.equal(view.attributes.has('data-entrance-error'),false);
 });

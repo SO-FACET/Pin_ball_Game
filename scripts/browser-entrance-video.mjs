@@ -18,6 +18,57 @@ const framing=JSON.parse(await readFile(new URL('../assets/ball-framing.json',im
 const browser=await browserType.launch({...engine==='chromium'&&process.platform==='darwin'?{args:['--enable-gpu']}:{}});
 try{
   const pixelFidelity=await verifyVideoCropPixels(browser);
+  const firstTouchContext=await browser.newContext({...devices[engine==='webkit'?'iPhone 13':'Pixel 7'],reducedMotion:'reduce'});
+  const firstTouchPage=await firstTouchContext.newPage(),firstTouchRequests=[];
+  let releaseFirstTouch;
+  const firstTouchGate=new Promise(resolve=>{releaseFirstTouch=resolve});
+  const firstTouchMedia=/(?:\/assets\/entrance-video\/(?:opening|journey)\.mp4|\/entrance-(?:opening|journey)-[a-f0-9]+\.mp4)/;
+  await firstTouchPage.route(firstTouchMedia,async route=>{await firstTouchGate;await route.continue().catch(()=>{})});
+  firstTouchPage.on('request',request=>firstTouchRequests.push(request.url()));
+  const defaultURL=new URL(base);defaultURL.search='';defaultURL.hash='';
+  try{
+    await firstTouchPage.goto(defaultURL.href);
+    await firstTouchPage.locator('#sf-cookie-notice [data-reject]').click();
+    await firstTouchPage.locator('#sf-cookie-notice').waitFor({state:'hidden'});
+    await firstTouchPage.waitForFunction(()=>!!window.entrancePreview);
+    assert.equal(await firstTouchPage.locator('body').getAttribute('data-awaiting-explore'),'','Background preparation keeps the opening visible');
+    assert.equal(await firstTouchPage.locator('#scroll-hint').isVisible(),true,'The opening must show its scroll cue');
+    if(!firstTouchRequests.some(url=>firstTouchMedia.test(url)))await firstTouchPage.waitForRequest(firstTouchMedia);
+    assert.equal(firstTouchRequests.some(url=>firstTouchMedia.test(url)),true,'The movie starts downloading before interaction');
+    if(engine==='webkit')await firstTouchPage.locator('#scroll-hint').tap();
+    else{
+      await firstTouchPage.mouse.move(180,300);
+      await firstTouchPage.mouse.wheel(0,700);
+    }
+    await firstTouchPage.waitForFunction(()=>document.body.hasAttribute('data-interaction-pending'));
+    assert.match(await firstTouchPage.locator('#scene-loading-status').innerText(),/Loading the journey/);
+    assert.equal(await firstTouchPage.locator('#site-loader').isVisible(),false,'Keep the opening instead of replaying the logo');
+    assert.equal(await firstTouchPage.locator('#game-page').getAttribute('src'),null);
+    releaseFirstTouch();
+    await firstTouchPage.waitForFunction(()=>window.entrancePreview?.ready&&window.entrancePreview.displayedFrame>=430,null,{timeout:180000});
+    assert.match(await firstTouchPage.locator('#scroll-hint').innerText(),/Keep swiping up/);
+    assert.equal(await firstTouchPage.locator('#scene-loading-status').isVisible(),false);
+    assert.equal(new URL(firstTouchPage.url()).pathname,'/');
+    assert.equal(await firstTouchPage.locator('#game-page').getAttribute('src'),null);
+    await writeFile(new URL(`${engine}-first-touch.json`,output),JSON.stringify({engine,passed:true,backgroundBeforeTouch:true,visibleLoadingFeedback:true,firstGestureMovesTheMovie:true,continuationCue:true}));
+  }finally{releaseFirstTouch();await firstTouchContext.close();}
+  const failureContext=await browser.newContext({...devices[engine==='webkit'?'iPhone 13':'Pixel 7'],reducedMotion:'reduce'});
+  const failurePage=await failureContext.newPage();
+  try{
+    await failurePage.addInitScript(()=>{Object.defineProperty(window,'caches',{value:undefined})});
+    await failurePage.route(firstTouchMedia,route=>route.abort());
+    await failurePage.goto(defaultURL.href);
+    await failurePage.locator('#sf-cookie-notice [data-reject]').click();
+    await failurePage.locator('#journey-retry').waitFor({state:'visible',timeout:30000});
+    assert.equal(new URL(failurePage.url()).pathname,'/','A failed movie must never redirect to the game');
+    assert.equal(await failurePage.locator('#game-page').getAttribute('src'),null);
+    assert.equal(await failurePage.locator('#scroll-hint').isVisible(),false,'Only Retry should invite action after a failure');
+    await failurePage.unroute(firstTouchMedia);
+    await failurePage.locator('#journey-retry').click();
+    await failurePage.waitForFunction(()=>window.entrancePreview?.ready&&window.entrancePreview.displayedFrame>=430,null,{timeout:180000});
+    assert.equal(new URL(failurePage.url()).pathname,'/');
+    await writeFile(new URL(`${engine}-failed-journey.json`,output),JSON.stringify({engine,passed:true,failureStaysOnOpening:true,retryLoadsMovie:true}));
+  }finally{await failureContext.close();}
   const phoneMotion=process.env.SOFACET_VIDEO_PHONE_MOTION||'reduce';
   const cases=cropOnly?[['phone',{width:393,height:852},phoneMotion]]:[['desktop',{width:1440,height:900},'no-preference'],['phone',{width:393,height:852},phoneMotion]];
   for(const [name,viewport,reducedMotion] of cases){

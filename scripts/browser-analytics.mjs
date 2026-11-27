@@ -99,6 +99,19 @@ try{
    await page.waitForFunction(()=>window.sofacetAnalytics&&window.sofacetCookiePreferences);
    assert.equal(await page.evaluate(()=>window.sofacetAnalytics.getStatus().enabled),false);
    assert.equal(providerRequests.length,0,'No external provider requests before consent');
+   if(workflow==='signup'){
+    let releaseSettings;
+    const gate=new Promise(resolve=>{releaseSettings=resolve});
+    const pattern=/\/assets\/cookie-settings-[A-Za-z0-9_-]+\.js(?:\?|$)/;
+    await page.route(pattern,async route=>{await gate;await route.continue()});
+    const response=page.waitForResponse(item=>pattern.test(item.url()));
+    await page.evaluate(()=>window.sofacetCookiePreferences.open());
+    await page.locator('#sf-cookie-pending button').click();
+    assert.equal(await page.evaluate(()=>document.documentElement.dataset.cookieSettingsOpen),'false','A slow settings import can be cancelled');
+    assert.equal(providerRequests.length,0,'Opening and cancelling settings cannot grant analytics');
+    releaseSettings();await response;await page.unroute(pattern);
+    report.pendingSettingsCancellationPassed=true;
+   }
    await setConsent(false);
    await page.reload();
    await page.waitForFunction(()=>window.sofacetAnalytics&&window.sofacetCookiePreferences);

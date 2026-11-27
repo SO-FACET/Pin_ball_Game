@@ -69,7 +69,8 @@ try {
         for(const {target} of records){
           if(target.id!=='site-loader'||!target.classList.contains('leaving')||window.entranceRevealSamples.length)continue;
           const renderer=window.entrancePreview?.renderer;
-          window.entranceRevealSamples.push({posterPresent:!!document.querySelector('#scene-poster'),
+          const poster=document.querySelector('#scene-poster'),style=poster&&getComputedStyle(poster);
+          window.entranceRevealSamples.push({posterVisible:!!poster&&style.visibility!=='hidden'&&style.display!=='none'&&Number(style.opacity)>0,
             draws:renderer?.info.render.calls||0,triangles:renderer?.info.render.triangles||0});
           observer.disconnect();
         }
@@ -112,7 +113,7 @@ try {
       await page.waitForFunction(() => window.entrancePreview?.ready, {}, {timeout: 120000});
       result.reveal=await page.evaluate(()=>window.entranceRevealSamples);
       assert.equal(result.reveal.length,1,'Observe the actual loader-to-scene handoff');
-      assert.equal(result.reveal[0].posterPresent,false,'The loader must never fade onto the outdated ball poster');
+      assert.equal(result.reveal[0].posterVisible,false,'The prepared movie must replace the static opening when the loader fades');
       assert.ok(result.reveal[0].draws>0&&result.reveal[0].triangles>0,'Draw the real opening before revealing it');
       assert.equal(await page.locator('video').count(),0,'The entrance must render its assembly without a video');
       result.initial = await readState(page);

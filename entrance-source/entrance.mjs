@@ -1,5 +1,6 @@
-import {presentationReady, modelDownload, videoEntrance, setStartupStatus, finishStartupStatus, completePreparation, cancelStartup} from './startup.mjs';
-import { createLandingCopy } from '/assets/kinetic-copy.js?v=welcome-scroll-3';
+import {presentationReady, modelDownload, videoEntrance, backgroundPreparation, setStartupStatus, finishStartupStatus, completePreparation, cancelStartup} from './startup.mjs';
+import {prepareJourney} from './prepare-journey.mjs';
+import {createStaticLandingCopy} from './static-copy.mjs';
 import { createAssemblyClock } from './assembly-clock.mjs';
 import { storyFrameAt } from './story-timing.mjs';
 import { createJourneyScrollMap, JOURNEY_START_FRAME } from './journey-scroll.mjs';
@@ -8,6 +9,7 @@ import { createFrameRatePanel } from './frame-rate-panel.js';
 import { framePlacement } from '/frame-placement.js';
 import { siteSound, CHESS_HIT_FRAME } from '/sounds/site-audio.js?v=frames-f48ace593c02';
 import { captureError } from '../shared/analytics.js';
+import { createLoadTracker, classifyLoadFailure } from '../shared/load-performance.js';
 
 const $=id=>document.getElementById(id);
 const firstFrame=JOURNEY_START_FRAME,lastFrame=CHESS_HIT_FRAME;
@@ -21,9 +23,13 @@ const showFPS=parameters.has('debug')||parameters.has('debug/1')||parameters.has
 const game=$('game-page'),main=$('entrance'),stage=$('scene-frame'),viewport=$('scene-viewport');
 const assembly=createAssemblyClock({reducedMotion:reduced.matches});
 let journey,updateCopy,framing,ready=false,gameLoaded=false,gameRequested=false,gameVisible=false;
+const entranceLoad=createLoadTracker(window,{stage:Number.isFinite(window.__sofacetExperienceStart)?'cinematic':'entrance',fromNavigation:true,startAt:window.__sofacetExperienceStart,metrics:()=>({renderer:videoEntrance?'video':'webgl',...journey?.loadMetrics})});
 let phase='loading',gameLoader,gameReadyObserver;
 let gameRecovering=false;
 let startupFailed=false;
+let activated=!backgroundPreparation,recovering=false,nativeFallbackUsed=false,renderModule,presentationLoaded;
+const sceneLifetime=new AbortController();
+if(backgroundPreparation)assembly.finish();
 let frame=firstFrame,presentedFrame=firstFrame,target=firstFrame,raf=0,lastTime=0,placement,renderView;
 let finalFramePresentedAt=Infinity;
 // The viewport is fixed throughout scrolling. Measure on resize rather than
@@ -44,12 +50,28 @@ async function loadMainPresentation(){
   // All markup and styles come from index.html at build time. Imports reuse the
   // same controllers as /video, without fetching and parsing that page again.
   await Promise.all([
-    import(new URL($('game-loader-controller').getAttribute('src'),document.baseURI).href),
+    import(new URL($('game-loader-controller').getAttribute('src')||$('game-loader-controller').dataset.src,document.baseURI).href),
     import(new URL($('entrance-navigation-controller').getAttribute('src'),document.baseURI).href),
   ]);
   gameLoader=window.sofacetGameLoader;
   $('game-loading-screen').addEventListener('sofacet:game-loader-ready',showGame);
   $('skip-game').addEventListener('click',event=>{event.preventDefault();enterGame();});
+}
+async function createLandingCopy({resume=false}={}){
+  const module=await import('/assets/kinetic-copy.js?v=welcome-scroll-4');
+  return module.createLandingCopy(resume?{initialFrame:storyFrameAt(presentedFrame),initialScroll:scrollY}:{});
+}
+function scheduleAnimatedCopy(){
+  const animate=async()=>{
+    if(gameRequested||sceneLifetime.signal.aborted)return;
+    try{
+      const copy=await createLandingCopy({resume:true});
+      if(gameRequested||sceneLifetime.signal.aborted){copy.destroy();return;}
+      updateCopy=copy;updateCopy.setScrolled(scrollY);updateCopy(storyFrameAt(presentedFrame));
+    }catch(error){captureError(error,{source:'entrance_copy'});}
+  };
+  if(window.requestIdleCallback)window.requestIdleCallback(()=>{void animate()},{timeout:2500});
+  else setTimeout(()=>{void animate()},800);
 }
 function placementAt(at,rect){
   const index=Math.floor(at),next=Math.min(index+1,framing.points.length-1);
@@ -74,25 +96,87 @@ function placeStage(){
   const transform=visibleArea?'none':`translate3d(${placement.x}px,${placement.y}px,0)`;
   if(stage.style.transform!==transform)stage.style.transform=transform;
 }
-function startScene(){
+function startScene({scroll=history.state?.sofacetWorldScroll||0,glide=false}={}){
   if(gameRequested||startupFailed)return;
   $('journey-preparation').hidden=true;
   finishStartupStatus();
-  $('scene-loading-status').setAttribute('data-ready','');
-  setTimeout(()=>{$('scene-loading-status').hidden=true},1500);
+  if(backgroundPreparation)$('scene-loading-status').hidden=true;
+  else{
+    $('scene-loading-status').setAttribute('data-ready','');
+    setTimeout(()=>{$('scene-loading-status').hidden=true},1500);
+  }
   phase=assembly.active?'assembly':'idle';document.body.dataset.phase=phase;ready=true;
+  entranceLoad.finish('ready');
   if(history.state?.sofacetGame){enterGame();return;}
-  window.scrollTo(0,history.state?.sofacetWorldScroll || 0);
+  if(glide)window.scrollTo({top:scroll,behavior:reduced.matches?'instant':'smooth'});
+  else window.scrollTo(0,scroll);
   siteSound.setActive(true);syncScroll();requestTick();
 }
-async function prepareScene(){
+async function prepareScene(renderer=journey,{at=firstFrame,hold=backgroundPreparation&&!activated}={}){
   if(gameRequested||startupFailed)return;
-  // Replace the old video poster while the loader is still opaque. The fade
-  // must reveal the relocated 3D opening, with its animation held until ready.
-  frame=firstFrame;updateCopy(assembly.active?assembly.frame:240);placeStage();journey.resize();
-  if(assembly.active)journey.renderAssemblyAt(assembly.frame);else journey.renderAt(frame);
-  await journey.whenSettled?.();
-  $('scene-poster').remove();
+  // Draw a settled first picture under the opening; a gesture reveals it only
+  // after preparation. Explicit comparison routes keep their existing loader.
+  frame=at;updateCopy(assembly.active?assembly.frame:at===firstFrame?240:storyFrameAt(at));placeStage();renderer.resize();
+  if(assembly.active)renderer.renderAssemblyAt(assembly.frame);else renderer.renderAt(frame);
+  await renderer.whenSettled?.();
+  if(!hold)document.body.setAttribute('data-cinematic-visible','');
+}
+export function activateEntrance({scroll=0}={}){
+  if(gameRequested)return;
+  if(startupFailed)throw Error('The journey is unavailable');
+  if(activated||ready)return;
+  activated=true;document.body.removeAttribute('data-awaiting-explore');
+  document.body.setAttribute('data-journey-started','');
+  document.body.setAttribute('data-cinematic-visible','');$('site-loader')?.remove();
+  startScene({scroll:Math.min(Math.max(0,scroll),innerHeight*.8),glide:true});
+  scheduleAnimatedCopy();
+}
+function showEntranceFailure(error,{report=true}={}){
+  startupFailed=true;ready=false;phase='error';cancelStartup();cancelAnimationFrame(raf);raf=0;
+  journey?.dispose();journey=null;siteSound.setActive(false);
+  document.body.removeAttribute('data-cinematic-visible');document.body.removeAttribute('data-loading');
+  document.body.removeAttribute('data-interaction-pending');document.body.setAttribute('data-entrance-error','');
+  document.body.setAttribute('data-awaiting-explore','');document.body.removeAttribute('data-cinematic-prepared');document.body.removeAttribute('data-scrolled');
+  updateCopy?.setScrolled?.(0);updateCopy?.(240);window.scrollTo(0,0);
+  document.body.dataset.phase='error';$('site-loader')?.remove();main.inert=false;main.removeAttribute('aria-hidden');
+  const status=$('scene-loading-status');status.hidden=false;status.removeAttribute('data-ready');
+  status.querySelector('[data-scene-status]').textContent='The journey couldn’t load. Please try again.';
+  $('journey-retry').hidden=false;
+  if(report&&error?.name!=='AbortError')captureError(error,{source:'entrance_startup'});
+}
+async function createSceneRenderer({nativeOnly=false,at=firstFrame}={}){
+  return prepareJourney({create:options=>renderModule.createJourneyRenderer(options),video:videoEntrance,nativeOnly,signal:sceneLifetime.signal,
+    onCreated:renderer=>{journey=renderer},
+    load:renderer=>renderer.loadVariant('compact',{download:modelDownload}),
+    prepare:async renderer=>{await presentationLoaded;await prepareScene(renderer,{at})},
+    options:{stage,profile:parameters.has('profile'),diagnostics:showFPS,performanceMode,skipOpening:backgroundPreparation,
+      renderView:at=>videoEntrance?videoViewAt(at):renderView,
+      pixelRatio:()=>Math.min(devicePixelRatio||1,1.5,1920/placement.width,1080/placement.height),
+      onProgress:(loaded,total)=>setStartupStatus('Preparing your journey…',Math.floor(loaded/total*100)),
+      onStatus:message=>{if(message)setStartupStatus(message)},
+      onRender:({frame:drawnFrame})=>{
+        if(videoEntrance){presentedFrame=drawnFrame;finalFramePresentedAt=Infinity;placeStage();if(ready&&phase!=='assembly')presentJourneyFrame(drawnFrame)}
+        frameRate?.record();
+      },onError:error=>{void recoverRenderer(error)}},
+    onRetry:renderer=>{nativeFallbackUsed=true;if(journey===renderer)journey=null;},
+  });
+}
+async function recoverRenderer(error){
+  if(recovering||gameRequested||startupFailed)return;
+  captureError(error,{source:'entrance_renderer'});console.error(error);
+  ready=false;recovering=true;cancelAnimationFrame(raf);raf=0;assembly.finish();
+  const at=Math.max(firstFrame,Math.min(lastFrame-1,presentedFrame));
+  document.body.removeAttribute('data-cinematic-visible');document.body.setAttribute('data-interaction-pending','');
+  $('scene-loading-status').hidden=false;$('scene-loading-status').removeAttribute('data-ready');
+  journey?.dispose();journey=null;
+  try{
+    if(!videoEntrance||nativeFallbackUsed)throw error;
+    nativeFallbackUsed=true;journey=await createSceneRenderer({nativeOnly:true,at});
+    if(gameRequested){journey.dispose();journey=null;return;}
+    document.body.removeAttribute('data-interaction-pending');document.body.removeAttribute('data-entrance-error');
+    if(activated)startScene({scroll:journeyScroll.scrollAtFrame(at)});
+  }catch(failure){if(!gameRequested)showEntranceFailure(failure,{report:failure!==error})}
+  finally{recovering=false;}
 }
 function gameVisibility(visible){
   game.contentWindow?.postMessage({type:'sofacet:experience-visibility',visible},location.origin);
@@ -117,12 +201,13 @@ function showGame(){
 }
 function enterGame({fromChess=false}={}){
   if(gameRequested)return;
+  entranceLoad.finish('cancelled');
   if(!history.state?.sofacetGame){
     const scroll=Math.min(scrollY,journeyScroll.scrollAtFrame(lastFrame-1));
     history.replaceState({...history.state,sofacetWorldScroll:scroll},'');
     history.pushState({...history.state,sofacetGame:true},'','/game');
   }
-  gameRequested=true;cancelStartup();
+  gameRequested=true;cancelStartup();sceneLifetime.abort(new DOMException('Entering the game','AbortError'));
   cancelAnimationFrame(raf);raf=0;journey?.suspend();siteSound.cards();
   assembly.finish();
   // Keep game work after the 3D loop stops. The origin/main loader covers real
@@ -152,7 +237,10 @@ game.addEventListener('load',()=>{
   gameReadyObserver=new MutationObserver(check);
   gameReadyObserver.observe(gameStage,{attributes:true,attributeFilter:['data-ready','aria-busy']});check();
 });
-$('scroll-hint').addEventListener('click',()=>{siteSound.unlock();window.scrollTo({top:window.scrollY+innerHeight*.8,behavior:reduced.matches?'instant':'smooth'});});
+$('scroll-hint').addEventListener('click',()=>{
+  siteSound.unlock();
+  if(ready)window.scrollTo({top:window.scrollY+innerHeight*.8,behavior:reduced.matches?'instant':'smooth'});
+});
 
 function tick(now){
   raf=0;if(gameRequested||document.hidden)return;
@@ -192,6 +280,7 @@ function presentJourneyFrame(at){
   const scrolledFrame=videoEntrance?at:target;
   updateCopy.setScrolled(journeyScroll.scrollAtFrame(scrolledFrame));updateCopy(storyFrameAt(at));
   document.body.toggleAttribute('data-scrolled',scrolledFrame>firstFrame+8);
+  if(backgroundPreparation)document.body.toggleAttribute('data-opening-cue-passed',scrolledFrame>=firstFrame+260);
   $('progress').style.transform=`scaleX(${(at-firstFrame)/(lastFrame-firstFrame)})`;
   siteSound.frame(at);
 }
@@ -220,7 +309,7 @@ document.addEventListener('visibilitychange',()=>{
 window.addEventListener('pagehide',event=>{
   if(ready&&!gameRequested)history.replaceState({...history.state,sofacetWorldScroll:scrollY},'');
   completion.suspend(performance.now());assembly.suspend();
-  if(!event.persisted){cancelAnimationFrame(raf);gameReadyObserver?.disconnect();resizeObserver.disconnect();updateCopy?.destroy();journey?.dispose();frameRate?.destroy();}
+  if(!event.persisted){sceneLifetime.abort(new DOMException('Page closed','AbortError'));cancelAnimationFrame(raf);gameReadyObserver?.disconnect();resizeObserver.disconnect();updateCopy?.destroy();journey?.dispose();frameRate?.destroy();}
 });
 window.addEventListener('pageshow',event=>{if(event.persisted){gameVisibility(gameVisible);if(!gameRequested){finalFramePresentedAt+=completion.resume(performance.now());journey?.suspend(false);requestTick();}}});
 // Read-only state for verifying scroll and handoff in the test entrance.
@@ -228,51 +317,27 @@ window.entrancePreview={get ready(){return ready;},get phase(){return phase;},ge
 
 try{
   const pointsReady=fetch('/assets/ball-framing.json').then(r=>{if(!r.ok)throw Error('Camera framing unavailable');return r.json();}).then(points=>{framing=points;placeStage();});
-  const copyReady=(async()=>{
+  const copyReady=presentationLoaded=(async()=>{
     await loadMainPresentation();
-    const [copy]=await Promise.all([createLandingCopy(),pointsReady]);
+    const [copy]=await Promise.all([backgroundPreparation?createStaticLandingCopy():createLandingCopy(),pointsReady]);
     updateCopy=copy;
   })();
   const scenePrepared=(async()=>{
-    const renderModule=await (videoEntrance?import('./video-renderer.mjs'):import('./journey-renderer.mjs'));
+    renderModule=await (videoEntrance?import('./video-renderer.mjs'):import('./journey-renderer.mjs'));
     await pointsReady;
     if(gameRequested||startupFailed)return;
-    journey=await renderModule.createJourneyRenderer({stage,
-      profile:parameters.has('profile'),diagnostics:showFPS,performanceMode,renderView:at=>videoEntrance?videoViewAt(at):renderView,
-      pixelRatio:()=>Math.min(devicePixelRatio||1,1.5,1920/placement.width,1080/placement.height),
-      onProgress:(loaded,total)=>setStartupStatus('Preparing your journey…',Math.floor(loaded/total*100)),
-      onStatus:message=>{if(message)setStartupStatus(message);},
-      onRender:({frame:drawnFrame})=>{
-        if(videoEntrance){
-          presentedFrame=drawnFrame;finalFramePresentedAt=Infinity;placeStage();
-          if(ready&&phase!=='assembly')presentJourneyFrame(drawnFrame);
-        }
-        frameRate?.record();
-      },
-      onError:error=>{captureError(error,{source:'entrance_renderer'});console.error(error);if(ready&&!gameRequested)enterGame();},
-    });
-    if(gameRequested||startupFailed){journey.dispose();journey=null;return;}
-    await journey.loadVariant('compact',{download:modelDownload});
+    journey=await createSceneRenderer();
     if(gameRequested||startupFailed){journey?.dispose();journey=null;return;}
+
   })();
   // Keep the logo visible until assets, cached poses and real GPU passes are ready.
   await Promise.all([copyReady,scenePrepared]);
-  await prepareScene();
   completePreparation();
-  await presentationReady;
-  startScene();
-}catch(error){
-  if(error?.name!=='AbortError')captureError(error,{source:'entrance_startup'});
-  startupFailed=true;cancelStartup();
-  journey?.dispose();journey=null;
-  if(!gameRequested){
-    document.body.dataset.error='';console.error(error);
-    await presentationReady;
-    // The entrance is optional. Recover through the normal game loader instead
-    // of stopping visitors on a separate error screen that needs another tap.
-    if(!gameRequested){
-      if(gameLoader)enterGame();
-      else location.replace('/game');
-    }
+  if(backgroundPreparation){
+    finishStartupStatus();document.body.setAttribute('data-cinematic-prepared','');entranceLoad.finish('ready');
+  }else{
+    await presentationReady;startScene();
   }
+}catch(error){
+  if(!gameRequested){entranceLoad.finish('failed',{failure_code:classifyLoadFailure(error)});showEntranceFailure(error);throw error;}
 }

@@ -2,6 +2,7 @@ import {boundedDuration,createDurationClock} from './duration.js';
 import {safePagePath,isKnownPagePath,redactText,sanitizeException} from './privacy.js';
 import {installEmbeddedReplay} from './embedded-replay.js';
 import {createGameFunnel} from './game-funnel.js';
+import {cleanLoadProperties,installLoadPerformance} from './load-performance.js';
 
 const eventKeys={
  page_view:[],page_leave:['duration_ms'],navigation_click:['destination','link_kind','control'],ui_click:['control'],
@@ -16,11 +17,13 @@ const eventKeys={
  logout:['method','flow'],profile_updated:['method','flow'],account_deleted:['method','flow'],
  first_cuts_registered:['method','flow'],share:['method'],
  api_request:['endpoint','status','duration_ms','outcome'],client_error:['source','endpoint','status','error_type'],
+ load_performance:[],
 };
 const endpoints=new Set(['/api/player','/api/account','/api/account/session','/api/account/details','/api/account/signout','/api/account/delete','/api/account/otp/request','/api/account/otp/verify','/api/membership','/api/membership/config','/api/membership/otp/request','/api/membership/otp/verify','/api/membership/rewards','/api/leaderboard','/api/first-cuts','/api/games/start','/api/games/:id/finish']);
 export const safePath=safePagePath;
 export const redact=redactText;
 export function cleanProperties(name,properties){
+ if(name==='load_performance')return cleanLoadProperties(properties);
  const clean={};
  const numeric=new Set(['points','best_points','status','run_sequence']);
  const durations=new Set(['duration_ms','page_active_ms','game_active_ms']);
@@ -55,6 +58,7 @@ export function installAnalytics(win,{loadGoogle,loadPosthog}={}){
  const duration=createDurationClock({now:()=>typeof win.performance?.now==='function'?win.performance.now():Date.now(),emit:(name,properties,path)=>{record(name,properties,path);if(name==='game_engagement')funnel.sample()}});
  const funnel=createGameFunnel({emit:(name,properties)=>record(name,properties),gameDuration:()=>duration.gameDuration()});
  const foreground=()=>win.document.hidden!==true&&(!win.document.visibilityState||win.document.visibilityState==='visible')&&(typeof win.document.hasFocus!=='function'||call(()=>win.document.hasFocus())===true);
+ const loadPerformance=embedded?null:installLoadPerformance(win,{allowed:()=>enabled&&allowed(),emit:(properties,path)=>record('load_performance',properties,path)});
  function clearDurationTimer(){if(durationTimer!==null){call(()=>win.clearInterval(durationTimer));durationTimer=null}}
  function syncDuration(){
   const active=timingReady&&enabled&&allowed()&&Boolean(lastPage)&&foreground();
@@ -147,6 +151,7 @@ export function installAnalytics(win,{loadGoogle,loadPosthog}={}){
   publishReplayContext();
  }
  function stop(){
+  loadPerformance?.stop();
   timingReady=false;clearDurationTimer();duration.stop();funnel.reset();
   if(scrollTimer!==null){call(()=>win.clearTimeout(scrollTimer));scrollTimer=null}
   enabled=false;generation++;identityRevision++;userId=null;queue=[];lastPage='';
@@ -164,6 +169,7 @@ export function installAnalytics(win,{loadGoogle,loadPosthog}={}){
     config=await response.json();
     if(!config.enabled||(!config.gaId&&!config.posthogKey)||epoch!==generation||!allowed())return;
     enabled=true;
+    loadPerformance?.prepare();
     // Verify a persisted account before the first event or recording is attributed.
     await refreshIdentity();
     await settleIdentity();
@@ -186,6 +192,7 @@ export function installAnalytics(win,{loadGoogle,loadPosthog}={}){
    // start() reset the clock, so reconcile its page even when pageView dedupes.
    duration.enterPage(lastPage);duration.setGameActivity(gameActivity&&lastPage==='/game');syncDuration();
    for(const item of queue.splice(0))send(item);
+   loadPerformance?.flush();
    call(()=>win.dispatchEvent(new (win.CustomEvent||win.Event)('sofacet:analytics-enabled')));
    publishReplayContext();
   })();

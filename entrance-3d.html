@@ -36,6 +36,7 @@
 <meta name="twitter:image" content="https://sofacet.com/assets/sofacet-share-20261116-v3.jpg">
 <!-- /site-metadata --><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>SO/ FACET — What's yours?</title>
+  <meta name="description" content="Play pinball, score SO/ COINS, and save them for SO/ FACET lab-grown diamond jewellery.">
   <base href="/">
 
   <script>if(location.hash==='#experience')document.documentElement.setAttribute('data-skip-intro','')</script>
@@ -427,10 +428,18 @@ body[data-loading] .social-links,body[data-game="visible"] .social-links{visibil
 </style>
 
   <style data-entrance-style>:root{--travel:11096px}
+body[data-awaiting-explore]{overflow:hidden}
+body[data-awaiting-explore] #site-loader,body[data-awaiting-explore] #scroll-space{display:none!important}
+body[data-awaiting-explore]:not([data-interaction-pending]):not([data-entrance-error]) #scene-loading-status{display:none}
+body[data-interaction-pending] #scene-loading-status,body[data-entrance-error] #scene-loading-status{visibility:visible}
+body[data-awaiting-explore] .story-opening{visibility:visible!important}
+body[data-awaiting-explore] #scroll-hint{visibility:visible;opacity:1;pointer-events:auto}
 body[data-loading]{overflow:hidden}
 #scene-frame{will-change:transform}
 #scene-frame canvas{display:block;width:100%;height:100%}
 #scene-poster{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none}
+body[data-cinematic-visible] #scene-poster{visibility:hidden}
+body[data-journey-started][data-cinematic-visible] #scene-poster{opacity:0;transition:opacity .26s ease-out,visibility 0s linear .26s}
 /* The opening copy shares a clear slot above the relocated ball. Keep the
    welcome and scroll chapters exclusive, even when a fast swipe skips ahead. */
 #story-copy{--opening-story-top:25%}
@@ -446,14 +455,30 @@ body:not([data-scrolled]) #story-copy .story-line:not(.story-opening){visibility
  #story-copy .story-outside,#story-copy .story-approach{left:6%;top:22%;width:35%}
 }
 body[data-loading] .frame-rate-panel{visibility:hidden}
-#scroll-hint{position:absolute;bottom:calc(32px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);z-index:4;display:flex;align-items:center;gap:18px;min-height:44px;padding:8px 18px;border:0;border-radius:0;background:transparent;color:#fff;font:400 14px 'Josefin Sans',sans-serif;cursor:pointer;transition:opacity .25s}
-#scroll-hint>span{transform:translateY(-2px)}
-#scroll-hint:focus-visible{outline:2px solid #e8fd00;outline-offset:5px}
-body[data-scrolled] #scroll-hint{opacity:0;pointer-events:none}
+#entrance{--cue-bottom:calc(32px + env(safe-area-inset-bottom,0px))}
+#scroll-hint,#scene-loading-status{
+ position:absolute;bottom:var(--cue-bottom);left:50%;transform:translateX(-50%);
+ min-height:62px;padding:8px 16px;border:1px solid #f6f2ff50;border-radius:8px;
+ background:#0b1022e8;color:#fff;font:600 14px/1.18 'Josefin Sans',sans-serif;
+}
+#scroll-hint{z-index:4;display:flex;align-items:center;gap:15px;width:max-content;max-width:calc(100% - 32px);cursor:pointer;transition:opacity .22s}
+#scroll-hint:hover,#scroll-hint:focus-visible{border-color:#d9ed37}
+#scroll-hint:focus-visible{outline:2px solid #e8fd00;outline-offset:4px}
+.cue-start{display:grid;gap:3px;text-align:left}
+.scroll-label{text-transform:uppercase;letter-spacing:.065em;white-space:nowrap}
+.cue-alternative{font-size:12px;font-weight:400;color:#f6f2ffdb;white-space:nowrap}
+.cue-arrow{font-size:20px;color:#d9ed37;rotate:180deg}
+.cue-touch,.cue-continue,body[data-journey-started] .cue-start{display:none}
+body[data-journey-started] .cue-continue{display:block;white-space:nowrap}
+body[data-journey-started] #scroll-hint{min-height:44px}
+body[data-opening-cue-passed] #scroll-hint:not(:focus-visible),body[data-scrolled]:not([data-journey-started]) #scroll-hint{opacity:0;visibility:hidden;pointer-events:none}
+body[data-interaction-pending] #scroll-hint,body[data-entrance-error] #scroll-hint{opacity:0;pointer-events:none}
+body[data-entrance-error] #scroll-hint{visibility:hidden}
 body[data-game-loading] #scene-viewport,body[data-game-loading] #story-copy,body[data-game-loading] #scroll-hint,body[data-game-loading] #progress,body[data-game-loading] .frame-rate-panel{visibility:hidden}
 body[data-game="visible"] #entrance{visibility:hidden}
-@media(max-width:600px){#scroll-hint{left:50%;right:auto;bottom:calc(72px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font-size:14px;gap:12px}}
-@media(prefers-reduced-motion:reduce){#scroll-hint{transition:none}}
+@media(max-width:600px){#entrance{--cue-bottom:calc(72px + env(safe-area-inset-bottom,0px))}}
+@media(pointer:coarse){.cue-touch{display:inline}.cue-mouse{display:none}.cue-arrow{rotate:none}}
+@media(prefers-reduced-motion:reduce){#scroll-hint,body[data-journey-started][data-cinematic-visible] #scene-poster{transition:none}}
 
 /* Visible in the first HTML response, before fonts or scene scripts arrive. */
 .startup-feedback{position:absolute;left:24px;right:24px;bottom:max(9vh,32px);z-index:2;display:grid;justify-items:center;gap:14px;color:#cbd0bf;font:14px/1.5 'Josefin Sans',sans-serif;text-align:center}
@@ -462,14 +487,19 @@ body[data-game="visible"] #entrance{visibility:hidden}
 #journey-preparation{z-index:6}
 body[data-game-loading] #journey-preparation{display:none}
 body[data-phase="buffering"] #scroll-hint{visibility:hidden}
-#scene-loading-status{position:absolute;z-index:6;left:50%;bottom:calc(72px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:grid;gap:10px;justify-items:center;max-width:90vw;padding:12px 20px;border-radius:12px;background:#080b15c9;color:#fff;font:13px/1.4 'Josefin Sans',sans-serif;text-align:center}
+#scene-loading-status{z-index:6;display:grid;gap:7px;place-content:center;justify-items:center;max-width:90vw;text-align:center;pointer-events:none}
+#scene-loading-status progress{width:min(122px,55vw)}
+body[data-entrance-error] #scene-loading-status{pointer-events:auto}
 body[data-loading] #scene-loading-status,body[data-game-loading] #scene-loading-status,body[data-phase="buffering"] #scene-loading-status{visibility:hidden}
 
 body[data-loading] #scroll-hint{visibility:hidden}
 #scene-loading-status[data-ready]{bottom:calc(132px + env(safe-area-inset-bottom,0px));pointer-events:none}
 #scene-loading-status[data-ready] progress{display:none}
+#scene-loading-status button{min-height:44px;padding:10px 18px;border:1px solid #d9ed37;background:#d9ed37;color:#101014;font:inherit;cursor:pointer}
+#scene-loading-status button[hidden],body[data-entrance-error] #scene-loading-status progress{display:none}
 </style>
-  <link rel="preload" href="/assets/fonts/sofacet-score-josefin-semibold.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="preload" href="/assets/fonts/sofacet-score-josefin-regular.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/assets/fonts/sofacet-score-josefin-semibold.woff2" as="font" type="font/woff2" crossorigin>
 <!-- cookie-preferences --><style>#sf-cookie-root{--panel:#090909;--text:#f5f3f7;--muted:#bcb9c1;--line:#827c88;--accent:#d9ed37;--button:#f6f2ff;color:var(--text);font:400 16px/1.5 'Josefin Sans',sans-serif;letter-spacing:normal;text-align:left;text-transform:none;color-scheme:dark;-webkit-font-smoothing:antialiased}
 #sf-cookie-root *,#sf-cookie-root *::before,#sf-cookie-root *::after{box-sizing:border-box}
 #sf-cookie-root [hidden]{display:none!important}
@@ -579,7 +609,7 @@ body[data-game-loading] #sf-cookie-notice,body[data-game='visible'] #sf-cookie-n
   if(link&&!event.defaultPrevented&&event.button===0&&!event.metaKey&&!event.ctrlKey&&!event.altKey&&!event.shiftKey){event.preventDefault();open()}
  },true);
 })();
-</script><script src="/assets/cookie-popup.js?v=f82c92a20759" defer></script><!-- /cookie-preferences --><!-- analytics --><script src="/assets/analytics.js?v=bbc320feffd1" defer></script><!-- /analytics --><!-- game-loader-head --><style id="game-loader-critical">.game-loading-screen{--game-loader-top:var(--game-loader-measured-top,96px);position:fixed;inset:var(--game-loader-top) 0 0;z-index:20;overflow:hidden;isolation:isolate;background:#000;opacity:1;transition:opacity .4s ease;touch-action:pan-y}
+</script><script src="/assets/cookie-popup.js?v=82628d4c8814" defer></script><!-- /cookie-preferences --><!-- analytics --><script src="/assets/analytics.js?v=cec8d111af02" defer></script><!-- /analytics --><!-- game-loader-head --><style id="game-loader-critical">.game-loading-screen{--game-loader-top:var(--game-loader-measured-top,96px);position:fixed;inset:var(--game-loader-top) 0 0;z-index:20;overflow:hidden;isolation:isolate;background:#000;opacity:1;transition:opacity .4s ease;touch-action:pan-y}
 .game-loading-screen[hidden]{display:none!important}
 .game-loading-screen[data-state="leaving"]{opacity:0;pointer-events:none}
 #game-loader-cards-root{height:100%;--game-loader-css-ready:1}
@@ -669,8 +699,8 @@ body[data-game-loading] .menu-panel:not([data-open]){visibility:hidden;pointer-e
 @media(max-width:700px){body[data-game-loading]{--nav-height:calc(116px + env(safe-area-inset-top,0px))}}
 @media(max-width:600px){body[data-game-loading] .site-brand{left:calc(20px + env(safe-area-inset-left,0px));top:calc(21px + env(safe-area-inset-top,0px));width:118px}body[data-game-loading] .site-nav{top:calc(7px + env(safe-area-inset-top,0px));right:calc(12px + env(safe-area-inset-right,0px))}}
 @media(prefers-reduced-motion:reduce){.game-loading-screen{transition:none}}
-</style><link rel="preload" href="/assets/game-loader.js?v=c850dc33da7e" as="script"><script id="game-loader-controller" src="/assets/game-loader.js?v=c850dc33da7e" defer onerror="const fail=()=>{const root=document.getElementById('game-loading-screen');if(root){root.hidden=false;root.querySelector('.game-loading-error').hidden=false;root.querySelector('[data-game-retry]').onclick=()=>location.reload()}};document.readyState==='loading'?document.addEventListener('DOMContentLoaded',fail,{once:true}):fail()"></script><!-- /game-loader-head --><link rel="stylesheet" href="/assets/typography.css?v=7deb760a41fd" data-brand-typography><link rel="stylesheet" href="/assets/brand-cursor.css?v=e232fbbbf989" data-brand-cursor></head>
-<body data-phase="buffering" data-loading>
+</style><script id="game-loader-controller" type="application/json" data-src="/assets/game-loader.js?v=33e07fc008e5"></script><!-- /game-loader-head --><link rel="stylesheet" href="/assets/typography.css?v=319a90f0fcc9" data-brand-typography><link rel="stylesheet" href="/assets/brand-cursor.css?v=e232fbbbf989" data-brand-cursor></head>
+<body data-phase="welcome" data-awaiting-explore>
   <div id="site-loader" role="region" aria-label="Loading SO/ FACET">
     <div id="loading-stage" tabindex="0" aria-label="SO/ FACET logo reveal" aria-describedby="loading-instructions">
       <p id="loading-instructions">SO/ FACET is loading. Tap or press a key to enable sound. Escape skips the animation.</p>
@@ -759,14 +789,18 @@ body[data-game-loading] .menu-panel:not([data-open]){visibility:hidden;pointer-e
     </svg>
     </div>
   <div class="startup-feedback"><p data-scene-status role="status">Growing the diamonds…</p><progress data-scene-progress max="100" aria-label="World download"></progress><span data-video-progress hidden></span></div></div>
-  <script type="module" src="/assets/entrance-3d/entry-SBF6PUQR-ph2ac3af20ed.js"></script>
-  <main id="entrance" aria-label="Explore the SO/ FACET world" inert aria-hidden="true">
+  <main id="entrance" aria-label="Explore the SO/ FACET world">
     <div id="scene-viewport">
       <div id="scene-frame" aria-hidden="true"></div>
-      <img id="scene-poster" src="/assets/opening-poster.webp" alt="" aria-hidden="true">
+      <!-- Match the real 3D opening at frame 334 before the first touch. -->
+      <picture>
+        <source media="(max-width:600px) and (orientation:portrait)" srcset="/assets/entrance-opening-mobile-7da3da433bda.webp">
+        <source media="(orientation:portrait)" srcset="/assets/entrance-opening-tablet-117bedb8b677.webp">
+        <img id="scene-poster" src="/assets/entrance-opening-desktop-e2b8c612a377.webp" width="1920" height="1080" fetchpriority="high" alt="" aria-hidden="true">
+      </picture>
     </div>
-    <div id="story-copy" aria-label="The SO/ FACET story">
-      <section class="story-line story-opening" data-from="51" data-until="241" aria-hidden="true">
+    <div id="story-copy" role="region" aria-label="The SO/ FACET story">
+      <section class="story-line story-opening" data-from="51" data-until="241" aria-hidden="false">
         <h1><span class="opening-welcome">Welcome to</span> <span class="opening-brand"><span class="kinetic-line-mask" aria-hidden="true"><span class="opening-wordmark"><img src="./assets/sofacet-wordmark.svg" width="2048" height="278" alt=""></span></span><span class="kinetic-sr">SO/ FACET</span></span></h1>
         <p><span class="story-text-line">LAB-GROWN DIAMONDS</span> <span class="story-text-line">REDEFINED</span></p>
       </section>
@@ -804,13 +838,17 @@ body[data-game-loading] .menu-panel:not([data-open]){visibility:hidden;pointer-e
           <a class="menu-item" href="./privacy" target="_top">Privacy</a>
         </nav>
     </header>
-    <div id="scene-loading-status"><span data-scene-status role="status">Growing the diamonds…</span><progress data-scene-progress max="100" aria-label="World download"></progress></div>
+    <div id="scene-loading-status"><span data-scene-status role="status">Loading the journey…</span><progress data-scene-progress max="100" aria-label="Journey download"></progress><button id="journey-retry" type="button" hidden>Retry journey</button></div>
     <section id="journey-preparation" aria-label="Preparing your journey" hidden>
       <h2>A world taking shape.</h2>
       <p id="preparation-status" data-scene-status role="status">Growing the diamonds…</p>
       <progress data-scene-progress max="100" aria-label="World download"></progress>
     </section>
-    <button id="scroll-hint" type="button">Scroll Up to Explore <span aria-hidden="true">↑</span></button>
+    <button id="scroll-hint" type="button">
+      <span class="cue-start"><span class="scroll-label">Scroll<span class="cue-touch"> Up</span><br>to Explore</span><span class="cue-alternative"><span class="cue-touch">Tap</span><span class="cue-mouse">Click</span> to start</span></span>
+      <span class="cue-continue"><span class="cue-touch">Keep swiping up</span><span class="cue-mouse">Keep scrolling</span></span>
+      <span class="cue-arrow" aria-hidden="true">↑</span>
+    </button>
     <div class="social-links">
       <button class="social-trigger" type="button" aria-expanded="false" aria-controls="social-profiles">Socials<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></button>
       <nav id="social-profiles" class="social-profiles" aria-label="Follow SO/ FACET">
@@ -822,9 +860,9 @@ body[data-game-loading] .menu-panel:not([data-open]){visibility:hidden;pointer-e
   </main>
   <iframe id="game-page" title="SO/ FACET pinball game" aria-hidden="true" inert></iframe>
   <div id="scroll-space" aria-hidden="true"></div>
-  <noscript><style>#site-loader,#entrance{display:none}</style><a class="play-now" href="/game">Play SOFACET</a></noscript>
+  <noscript><p>Explore the cinematic with JavaScript enabled, or <a href="/game">play SOFACET pinball</a>.</p></noscript>
   <script type="module" src="./assets/social-links.js?v=restored-20261106"></script>
   <script id="entrance-navigation-controller" type="module" src="./navigation.js?v=b4f5536f832f"></script>
-  <script type="module" src="/assets/entrance-3d/entry-ZKTDR26M-ph2ac3af20ed.js"></script>
+  <script type="module" src="/assets/entrance-3d/entry-U2UWWFXY-ph2ac3af20ed.js"></script>
 <!-- site-join --><script defer src="/assets/site-join.js?v=b920d944a243"></script><!-- /site-join --><!-- game-loader-body --><div id="game-loading-screen" data-managed class="game-loading-screen" hidden><div id="game-loader-cards-root" hidden><link rel="preload" as="image" href="/assets/loader-cards/card-back.svg?v=faceted-platinum-20261107"/><link rel="preload" as="image" href="/assets/sofacet-wordmark.svg"/><div class="game-loader-cards"><div class="gallery" aria-label="SO/ FACET silver card collection"><p class="card-hint card-hint-top"><span class="hint-click">Click to Explore</span><span class="hint-swipe">Swipe left to explore</span></p><div class="stage" aria-busy="false"><div class="floating"><div class="deck" tabindex="0" role="button" aria-label="Diamond card. Front view" aria-describedby="loader-card-instructions"><article class="sofacet-card" data-slot="0" aria-label="Diamond card" aria-hidden="false"><div class="card-turn"><div class="face front-face" aria-hidden="false"><img class="sofacet-card__background" src="/assets/loader-cards/card.svg?v=faceted-platinum-20261107" alt="" width="806" height="1330" loading="lazy" decoding="async"/><img class="sofacet-card__product product--diamond" src="/assets/loader-cards/diamond.png" alt="Faceted diamond" width="535" height="425" loading="lazy" decoding="async"/><div class="card-copy diamond-copy"><p>Up Next:</p><h1>Pinball</h1></div></div><div class="face reverse-face" aria-hidden="true"><img class="sofacet-card__background" src="/assets/loader-cards/card-back.svg?v=faceted-platinum-20261107" alt="" width="806" height="1330" loading="eager" decoding="async"/><p class="back-name"><img src="/assets/sofacet-wordmark.svg" alt="SO/ FACET" width="2048" height="278"/></p></div></div></article><article class="sofacet-card" data-slot="1" aria-label="Pinball card" aria-hidden="true"><div class="card-turn"><div class="face front-face" aria-hidden="false"><img class="sofacet-card__background" src="/assets/loader-cards/card.svg?v=faceted-platinum-20261107" alt="" width="806" height="1330" loading="lazy" decoding="async"/><img class="sofacet-card__product product--pinball" src="/assets/loader-cards/pinball.png" alt="SO/ FACET pinball table" width="740" height="595" loading="lazy" decoding="async"/><div class="card-copy table-copy"><p class="table-title">Score <span class="coin-word">SO/ COINS</span>.</p><p class="table-detail">Save them for<br/><span class="brand-word">SO/ FACET</span> diamond jewellery.</p></div></div><div class="face reverse-face" aria-hidden="true"><img class="sofacet-card__background" src="/assets/loader-cards/card-back.svg?v=faceted-platinum-20261107" alt="" width="806" height="1330" loading="eager" decoding="async"/><p class="back-name"><img src="/assets/sofacet-wordmark.svg" alt="SO/ FACET" width="2048" height="278"/></p></div></div></article><article class="sofacet-card" data-slot="2" aria-label="Jewellery card" aria-hidden="true"><div class="card-turn"><div class="face front-face" aria-hidden="false"><img class="sofacet-card__background" src="/assets/loader-cards/card.svg?v=faceted-platinum-20261107" alt="" width="806" height="1330" loading="lazy" decoding="async"/><img class="sofacet-card__product product--earrings" src="/assets/loader-cards/earrings.png" alt="Pair of SO/ FACET black and white diamond star earrings" width="515" height="415" loading="lazy" decoding="async"/><div class="card-copy jewellery-copy"><p class="offer">1,000 <span class="coin-word">SO/ COINS</span> = <span class="rupee">₹</span>100 OFF</p><p class="offer-detail"><span class="brand-word">SO/ FACET</span> DIAMOND JEWELLERY</p></div></div><div class="face reverse-face" aria-hidden="true"><img class="sofacet-card__background" src="/assets/loader-cards/card-back.svg?v=faceted-platinum-20261107" alt="" width="806" height="1330" loading="eager" decoding="async"/><p class="back-name"><img src="/assets/sofacet-wordmark.svg" alt="SO/ FACET" width="2048" height="278"/></p></div></div></article></div></div></div></div><p class="sr-only" id="loader-card-instructions">On mobile, swipe to advance. On desktop, click or press an arrow key to advance. On a keyboard, use Enter to flip and Space to pause or resume. Each card advances automatically after 8 seconds.</p><p class="sr-only" data-card-status="true" aria-live="polite" aria-atomic="true">Diamond card, 1 of 3.</p></div></div><p class="loading-copy" role="status">Preparing your game… <span id="loading-detail"></span></p><div class="game-loading-progress" role="progressbar" aria-label="Loading game" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden><span class="game-loading-statement" role="status" aria-atomic="true">Up Next: Pinball</span><span class="game-loading-track"><span class="game-loading-fill"></span></span></div><div class="game-loading-error" role="alert" hidden><p>The game couldn’t load. Check your connection and try again.</p><button type="button" data-game-retry>Try again</button></div></div><!-- /game-loader-body --></body>
 </html>

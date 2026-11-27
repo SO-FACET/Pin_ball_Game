@@ -7,7 +7,7 @@ const EXIT = .48;
 const STAGGER = .16;
 const WELCOME_SCROLL_DISTANCE = 300;
 
-export async function createLandingCopy({welcome:showWelcome=true}={}) {
+export async function createLandingCopy({welcome:showWelcome=true,initialFrame=0,initialScroll=0}={}) {
   // WebKit can hold fonts.ready until a stalled video finishes the document load.
   await document.fonts.load('400 16px "Josefin Sans"').catch(() => {});
   const root = document.querySelector('#story-copy');
@@ -20,7 +20,7 @@ export async function createLandingCopy({welcome:showWelcome=true}={}) {
   const visibility = new Map();
   const media = gsap.matchMedia();
   const welcome = headlines[0].element;
-  let frame = 0, reduced = false, scrollStarted = false, welcomeTween;
+  let frame = initialFrame, reduced = false, scrollStarted = initialScroll >= WELCOME_SCROLL_DISTANCE, welcomeTween;
 
   function paint() {
     const welcomeVisible = showWelcome&&(!scrollStarted || Number(gsap.getProperty(welcome, 'opacity')) > 0);
