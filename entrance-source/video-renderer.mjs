@@ -7,8 +7,8 @@ import {visibleVideoCrop} from './video-crop.mjs';
 
 // Short GOP media belongs to the browser decoder. The existing all-IDR
 // WebCodecs worker cannot decode these samples independently.
-export async function createJourneyRenderer({stage,renderView=()=>null,diagnostics=false,onProgress=()=>{},onRender=()=>{},onError=()=>{}}){
-  let {manifest,clips,selectionReason}=await loadEntranceMedia();
+export async function createJourneyRenderer({stage,renderView=()=>null,diagnostics=false,onProgress=()=>{},onRender=()=>{},onError=()=>{},option,forceNative=false,skipOpening=false,signal}){
+  let {manifest,clips,selectionReason}=await loadEntranceMedia(undefined,{...(option?{option}:{}),signal});
   const canvas=document.createElement('canvas'),initialCrop=visibleVideoCrop(manifest.width,manifest.height,renderView(JOURNEY_START_FRAME));
   canvas.width=initialCrop?.width??manifest.width;canvas.height=initialCrop?.height??manifest.height;
   const context=canvas.getContext('2d',{alpha:false});
@@ -210,9 +210,9 @@ export async function createJourneyRenderer({stage,renderView=()=>null,diagnosti
     if(disposed)throw new DOMException('Entrance disposed','AbortError');
     manifest=loaded.manifest;clips=loaded.clips;buffer=loaded.buffer;
     sourceWidth=manifest.width;sourceHeight=manifest.height;size.width=manifest.width;size.height=manifest.height;
-    segmented=clips.journey.segments?(await createStreamedVideoSource(clips.journey.segments,clips.journey.decoder,size)||createSegmentedVideoSource(clips.journey.segments,size)):null;
+    segmented=clips.journey.segments?(!forceNative&&await createStreamedVideoSource(clips.journey.segments,clips.journey.decoder,size)||createSegmentedVideoSource(clips.journey.segments,size)):null;
     if(disposed){segmented?.dispose();segmented=null;throw new DOMException('Entrance disposed','AbortError');}
-    await Promise.all([ensureOpening(),prepareJourney()]);
+    await Promise.all([...(skipOpening?[]:[ensureOpening()]),prepareJourney()]);
   })();}
   return {
     loadVariant,

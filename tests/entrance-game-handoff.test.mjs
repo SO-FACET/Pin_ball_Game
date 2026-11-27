@@ -92,7 +92,7 @@ function entrance(){
   show(options){this.shown++;this.options=options;events.push('show-loader')},fail(){this.failed=true;this.failures++},
   ready(){this.readyCalls++;if(!this.failed)context.showGame()},
  };
- const context={cancelStartup(){},game,gameLoader:loader,main:{setAttribute(){}},entranceLoad:{finish:outcome=>loads.push(outcome)},
+ const context={cancelStartup(){},sceneLifetime:new AbortController(),DOMException,game,gameLoader:loader,main:{setAttribute(){}},entranceLoad:{finish:outcome=>loads.push(outcome)},
   history:{state:null,replaceState(value){this.state=value},pushState(value){this.state=value}},
   journeyScroll:{scrollAtFrame:()=>100},lastFrame:40,scrollY:100,
   document:{body:{dataset:{},setAttribute(){}}},location:{origin:'http://localhost',replace:url=>redirects.push(url)},
