@@ -2,7 +2,7 @@
 body[data-awaiting-explore]{overflow:hidden}
 body[data-awaiting-explore] #site-loader,body[data-awaiting-explore] #scene-loading-status,body[data-awaiting-explore] #scroll-space{display:none!important}
 body[data-awaiting-explore] .story-opening{visibility:visible!important}
-body[data-awaiting-explore] #scroll-hint{visibility:visible}
+body[data-awaiting-explore] #scroll-hint:not(:focus-visible){opacity:0;pointer-events:none}
 body[data-loading]{overflow:hidden}
 #scene-frame{will-change:transform}
 #scene-frame canvas{display:block;width:100%;height:100%}

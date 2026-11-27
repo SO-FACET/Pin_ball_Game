@@ -18,6 +18,23 @@ const framing=JSON.parse(await readFile(new URL('../assets/ball-framing.json',im
 const browser=await browserType.launch({...engine==='chromium'&&process.platform==='darwin'?{args:['--enable-gpu']}:{}});
 try{
   const pixelFidelity=await verifyVideoCropPixels(browser);
+  const firstTouchContext=await browser.newContext({...devices[engine==='webkit'?'iPhone 13':'Pixel 7'],reducedMotion:'reduce'});
+  const firstTouchPage=await firstTouchContext.newPage(),firstTouchRequests=[];
+  let releaseFirstTouch;
+  const firstTouchGate=new Promise(resolve=>{releaseFirstTouch=resolve});
+  const firstTouchMedia=/(?:\/assets\/entrance-video\/(?:opening|journey)\.mp4|\/entrance-(?:opening|journey)-[a-f0-9]+\.mp4)/;
+  await firstTouchPage.route(firstTouchMedia,async route=>{await firstTouchGate;await route.abort().catch(()=>{})});
+  firstTouchPage.on('request',request=>firstTouchRequests.push(request.url()));
+  try{
+    const url=new URL(base);url.search='';url.hash='';
+    await firstTouchPage.goto(url.href);
+    assert.equal(await firstTouchPage.locator('body').getAttribute('data-awaiting-explore'),'');
+    assert.equal(firstTouchRequests.some(url=>firstTouchMedia.test(url)),false,'No movie download before the first touch');
+    await firstTouchPage.touchscreen.tap(180,300);
+    await firstTouchPage.waitForFunction(()=>!!window.entrancePreview);
+    assert.equal(await firstTouchPage.locator('body').getAttribute('data-loading'),'');
+    await writeFile(new URL(`${engine}-first-touch.json`,output),JSON.stringify({engine,passed:true,startsOnFirstTouch:true}));
+  }finally{releaseFirstTouch();await firstTouchContext.close();}
   const phoneMotion=process.env.SOFACET_VIDEO_PHONE_MOTION||'reduce';
   const cases=cropOnly?[['phone',{width:393,height:852},phoneMotion]]:[['desktop',{width:1440,height:900},'no-preference'],['phone',{width:393,height:852},phoneMotion]];
   for(const [name,viewport,reducedMotion] of cases){
