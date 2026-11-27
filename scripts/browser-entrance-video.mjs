@@ -35,8 +35,22 @@ try{
     assert.equal(await firstTouchPage.locator('#scroll-hint').isVisible(),true,'The opening must show its scroll cue');
     if(!firstTouchRequests.some(url=>firstTouchMedia.test(url)))await firstTouchPage.waitForRequest(firstTouchMedia);
     assert.equal(firstTouchRequests.some(url=>firstTouchMedia.test(url)),true,'The movie starts downloading before interaction');
-    await firstTouchPage.mouse.move(180,300);
-    await firstTouchPage.mouse.wheel(0,700);
+    if(engine==='webkit'){
+      // Mobile WebKit has no mouse wheel. A trusted tap unlocks native media;
+      // touch events then exercise the same pending-swipe path as a finger.
+      await firstTouchPage.touchscreen.tap(180,600);
+      await firstTouchPage.evaluate(()=>{
+        const target=document.getElementById('scene-poster');
+        for(const [type,clientY] of [['touchstart',700],['touchmove',100],['touchend',100]]){
+          const touch=new Touch({identifier:1,target,clientX:180,clientY});
+          const touches=type==='touchend'?[]:[touch];
+          target.dispatchEvent(new TouchEvent(type,{bubbles:true,cancelable:true,touches,targetTouches:touches,changedTouches:[touch]}));
+        }
+      });
+    }else{
+      await firstTouchPage.mouse.move(180,300);
+      await firstTouchPage.mouse.wheel(0,700);
+    }
     await firstTouchPage.waitForFunction(()=>document.body.hasAttribute('data-interaction-pending'));
     assert.equal(await firstTouchPage.locator('#site-loader').isVisible(),false,'Keep the opening instead of replaying the logo');
     assert.equal(await firstTouchPage.locator('#game-page').getAttribute('src'),null);
